@@ -1,1 +1,1 @@
-"""Domain entities and ports for SentinelOps AI."""
+"""Domain entities and ports for CodeSentinel."""

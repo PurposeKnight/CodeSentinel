@@ -18,15 +18,15 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-sentinelops}
-      POSTGRES_USER: ${POSTGRES_USER:-sentinelops}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sentinelops}
+      POSTGRES_DB: ${POSTGRES_DB:-codesentinel}
+      POSTGRES_USER: ${POSTGRES_USER:-codesentinel}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-codesentinel}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-sentinelops} -d ${POSTGRES_DB:-sentinelops}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-codesentinel} -d ${POSTGRES_DB:-codesentinel}"]
       interval: 10s
       timeout: 5s
       retries: 5

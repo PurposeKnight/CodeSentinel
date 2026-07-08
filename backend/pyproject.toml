@@ -1,7 +1,7 @@
 [project]
-name = "sentinelops-api"
+name = "codesentinel-api"
 version = "0.1.0"
-description = "FastAPI backend for SentinelOps AI"
+description = "FastAPI backend for CodeSentinel"
 requires-python = ">=3.12"
 dependencies = [
     "asyncpg>=0.29.0",

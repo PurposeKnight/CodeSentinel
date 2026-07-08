@@ -1,6 +1,6 @@
-# SentinelOps AI
+# CodeSentinel
 
-SentinelOps AI is an autonomous multi-agent code review and deployment platform.
+CodeSentinel is an autonomous multi-agent code review and deployment platform.
 
 This first milestone contains the production-oriented FastAPI backend foundation:
 

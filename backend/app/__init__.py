@@ -1,1 +1,1 @@
-"""SentinelOps AI API package."""
+"""CodeSentinel API package."""

@@ -1,4 +1,4 @@
-# SentinelOps AI Architecture
+# CodeSentinel Architecture
 
 ## Goal Of This Step
 
@@ -6,7 +6,7 @@ This milestone creates the backend foundation that future services and agents ca
 
 ## Target System Architecture
 
-SentinelOps AI will use a modular microservice architecture:
+CodeSentinel will use a modular microservice architecture:
 
 - Frontend: Next.js dashboard for repositories, pull requests, reports, deployments, monitoring, and settings.
 - API Gateway: Public REST boundary, authentication enforcement, request routing, and dashboard-facing APIs.

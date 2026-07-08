@@ -5,7 +5,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    app_name: str = "SentinelOps AI API"
+    app_name: str = "CodeSentinel API"
     app_env: str = "local"
     app_debug: bool = False
     app_version: str = "0.1.0"
@@ -15,9 +15,9 @@ class Settings(BaseSettings):
 
     postgres_host: str = "localhost"
     postgres_port: int = 5432
-    postgres_db: str = "sentinelops"
-    postgres_user: str = "sentinelops"
-    postgres_password: SecretStr = Field(default=SecretStr("sentinelops"))
+    postgres_db: str = "codesentinel"
+    postgres_user: str = "codesentinel"
+    postgres_password: SecretStr = Field(default=SecretStr("codesentinel"))
 
     redis_host: str = "localhost"
     redis_port: int = 6379
