@@ -1,11 +1,11 @@
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 from app.schemas.health import DependencyHealth
 from app.services.health_service import HealthService
 
 
 async def test_health_service_reports_ok_dependencies() -> None:
-    pool = AsyncMock()
+    pool = MagicMock()
     connection = AsyncMock()
     connection.fetchval.return_value = 1
     pool.acquire.return_value.__aenter__.return_value = connection

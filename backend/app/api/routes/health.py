@@ -1,3 +1,5 @@
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, Request, status
 from fastapi.responses import JSONResponse
 
@@ -22,7 +24,7 @@ async def health(request: Request) -> HealthResponse:
 @router.get("/health/ready", response_model=HealthResponse)
 async def readiness(
     request: Request,
-    health_service: HealthService = Depends(get_health_service),
+    health_service: Annotated[HealthService, Depends(get_health_service)],
 ) -> HealthResponse | JSONResponse:
     settings = request.app.state.settings
     dependencies = await health_service.check_dependencies()

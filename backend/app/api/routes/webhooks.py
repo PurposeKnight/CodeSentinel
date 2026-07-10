@@ -1,9 +1,11 @@
-from typing import Any
+from typing import Annotated
 
-from fastapi import APIRouter, Header, Request, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 
+from app.api.dependencies.services import get_github_webhook_service
 from app.core.logging import get_logger
 from app.schemas.webhooks import GitHubWebhookAccepted
+from app.services.webhook_service import GitHubWebhookService, WebhookVerificationError
 
 router = APIRouter()
 logger = get_logger(__name__)
@@ -16,20 +18,47 @@ logger = get_logger(__name__)
 )
 async def github_webhook(
     request: Request,
+    webhook_service: Annotated[
+        GitHubWebhookService,
+        Depends(get_github_webhook_service),
+    ],
     x_github_event: str | None = Header(default=None),
     x_github_delivery: str | None = Header(default=None),
+    x_hub_signature_256: str | None = Header(default=None),
 ) -> GitHubWebhookAccepted:
-    payload: dict[str, Any] = await request.json()
+    raw_body = await request.body()
+    try:
+        event = webhook_service.parse_event(
+            raw_body=raw_body,
+            signature=x_hub_signature_256,
+            event_type=x_github_event,
+            delivery_id=x_github_delivery,
+        )
+    except WebhookVerificationError as exc:
+        logger.warning(
+            "github_webhook_rejected",
+            github_event=x_github_event,
+            delivery_id=x_github_delivery,
+            reason=str(exc),
+        )
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid GitHub webhook signature.",
+        ) from exc
+
     logger.info(
         "github_webhook_received",
-        event=x_github_event,
-        delivery_id=x_github_delivery,
-        repository=payload.get("repository", {}).get("full_name"),
+        github_event=event.event,
+        delivery_id=event.delivery_id,
+        action=event.action,
+        repository=event.repository_full_name,
     )
 
     return GitHubWebhookAccepted(
         accepted=True,
-        event=x_github_event or "unknown",
-        delivery_id=x_github_delivery,
-        message="GitHub webhook accepted for future workflow processing.",
+        event=event.event,
+        delivery_id=event.delivery_id,
+        action=event.action,
+        repository=event.repository_full_name,
+        message="GitHub webhook verified and accepted for future workflow processing.",
     )

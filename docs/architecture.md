@@ -58,4 +58,4 @@ HTTP routes should be thin. They validate transport details and call application
 
 - `GET /health`: Liveness endpoint for process-level health.
 - `GET /health/ready`: Readiness endpoint that checks PostgreSQL and Redis connectivity.
-- `POST /api/v1/webhooks/github`: Placeholder for GitHub webhook ingestion. Signature verification and job publishing will be added in a later step.
+- `POST /api/v1/webhooks/github`: Verifies GitHub webhook signatures and accepts events for future workflow processing. Job publishing will be added in a later step.

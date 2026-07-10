@@ -38,6 +38,17 @@ Useful endpoints:
 - `GET /health/ready`
 - `POST /api/v1/webhooks/github`
 
+GitHub webhook requests must include `X-Hub-Signature-256`, signed with `GITHUB_WEBHOOK_SECRET`.
+
+Run backend tests locally:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\python -m pip install -e ".\backend[dev]"
+.\.venv\Scripts\python -m pytest .\backend
+.\.venv\Scripts\python -m ruff check .\backend
+```
+
 ## Architecture Direction
 
 See [docs/architecture.md](docs/architecture.md) for the planned service boundaries and folder structure.

@@ -1,3 +1,5 @@
+name: codesentinel
+
 services:
   api:
     build:
