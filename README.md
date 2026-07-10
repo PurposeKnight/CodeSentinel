@@ -8,8 +8,10 @@ This first milestone contains the production-oriented FastAPI backend foundation
 - Environment-based configuration
 - Structured logging
 - PostgreSQL and Redis connectivity wiring
+- PostgreSQL repository persistence for PR reviews and agent tasks
 - RabbitMQ event publishing for verified GitHub webhooks
-- Planner Worker consumption for pull request workflow planning
+- RabbitMQ downstream agent task queues (`codesentinel.tasks.security`, etc.)
+- Planner Worker consumption for pull request workflow planning, persistence, and task routing
 - Docker and Docker Compose support
 - Health and readiness endpoints
 - GitHub webhook placeholder endpoint
@@ -41,16 +43,15 @@ Useful endpoints:
 - `POST /api/v1/webhooks/github`
 
 GitHub webhook requests must include `X-Hub-Signature-256`, signed with `GITHUB_WEBHOOK_SECRET`.
-Verified webhook events are published to RabbitMQ for asynchronous workflow processing.
-The Planner Worker consumes those events and creates the initial agent execution plan.
+Verified webhook events are published to RabbitMQ. The Planner Worker consumes those events, creates a pull request review record in PostgreSQL, creates associated agent task records in status `pending`, and publishes the tasks to RabbitMQ for execution.
 
 Run backend tests locally:
 
 ```powershell
 python -m venv .venv
-.\.venv\Scripts\python -m pip install -e ".\backend[dev]"
-.\.venv\Scripts\python -m pytest .\backend
-.\.venv\Scripts\python -m ruff check .\backend
+cd backend
+..\.venv\Scripts\python -m pytest
+..\.venv\Scripts\python -m ruff check .
 ```
 
 ## Architecture Direction
