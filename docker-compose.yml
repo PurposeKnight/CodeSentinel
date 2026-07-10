@@ -19,6 +19,19 @@ services:
     volumes:
       - ./backend/app:/app/app:ro
 
+  planner-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: ["python", "-m", "app.workers.planner_worker"]
+    env_file:
+      - .env
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - ./backend/app:/app/app:ro
+
   postgres:
     image: postgres:16-alpine
     environment:

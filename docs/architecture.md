@@ -59,3 +59,7 @@ HTTP routes should be thin. They validate transport details and call application
 - `GET /health`: Liveness endpoint for process-level health.
 - `GET /health/ready`: Readiness endpoint that checks PostgreSQL and Redis connectivity.
 - `POST /api/v1/webhooks/github`: Verifies GitHub webhook signatures and publishes accepted events to RabbitMQ for future workflow processing.
+
+## Current Worker
+
+- `planner-worker`: Consumes `codesentinel.github.webhooks`, ignores unsupported events, and creates the initial pull request agent plan for supported PR actions.

@@ -34,6 +34,7 @@ class Settings(BaseSettings):
     rabbitmq_github_webhook_routing_key: str = "github.webhook.received"
     rabbitmq_connect_retries: int = 10
     rabbitmq_connect_retry_delay_seconds: float = 2.0
+    planner_worker_prefetch_count: int = 5
 
     github_webhook_secret: SecretStr = Field(default=SecretStr("change-me"))
 

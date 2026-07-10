@@ -9,6 +9,7 @@ This first milestone contains the production-oriented FastAPI backend foundation
 - Structured logging
 - PostgreSQL and Redis connectivity wiring
 - RabbitMQ event publishing for verified GitHub webhooks
+- Planner Worker consumption for pull request workflow planning
 - Docker and Docker Compose support
 - Health and readiness endpoints
 - GitHub webhook placeholder endpoint
@@ -41,6 +42,7 @@ Useful endpoints:
 
 GitHub webhook requests must include `X-Hub-Signature-256`, signed with `GITHUB_WEBHOOK_SECRET`.
 Verified webhook events are published to RabbitMQ for asynchronous workflow processing.
+The Planner Worker consumes those events and creates the initial agent execution plan.
 
 Run backend tests locally:
 

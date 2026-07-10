@@ -3,7 +3,7 @@ from asyncio import sleep
 
 import aio_pika
 from aio_pika import DeliveryMode, ExchangeType, Message
-from aio_pika.abc import AbstractChannel, AbstractRobustConnection
+from aio_pika.abc import AbstractChannel, AbstractQueue, AbstractRobustConnection
 
 from app.core.config import Settings
 from app.core.logging import get_logger
@@ -26,22 +26,9 @@ class RabbitMQEventPublisher:
     @classmethod
     async def create(cls, settings: Settings) -> "RabbitMQEventPublisher":
         logger.info("rabbitmq_connecting", host=settings.rabbitmq_host)
-        connection = await _connect_with_retry(settings)
+        connection = await connect_with_retry(settings)
         channel = await connection.channel(publisher_confirms=True)
-
-        exchange = await channel.declare_exchange(
-            settings.rabbitmq_exchange,
-            ExchangeType.DIRECT,
-            durable=True,
-        )
-        queue = await channel.declare_queue(
-            settings.rabbitmq_github_webhook_queue,
-            durable=True,
-        )
-        await queue.bind(
-            exchange,
-            routing_key=settings.rabbitmq_github_webhook_routing_key,
-        )
+        await declare_github_webhook_topology(channel, settings)
 
         logger.info(
             "rabbitmq_connected",
@@ -100,7 +87,27 @@ async def close_event_publisher(publisher: RabbitMQEventPublisher | None) -> Non
     await publisher.close()
 
 
-async def _connect_with_retry(settings: Settings) -> AbstractRobustConnection:
+async def declare_github_webhook_topology(
+    channel: AbstractChannel,
+    settings: Settings,
+) -> AbstractQueue:
+    exchange = await channel.declare_exchange(
+        settings.rabbitmq_exchange,
+        ExchangeType.DIRECT,
+        durable=True,
+    )
+    queue = await channel.declare_queue(
+        settings.rabbitmq_github_webhook_queue,
+        durable=True,
+    )
+    await queue.bind(
+        exchange,
+        routing_key=settings.rabbitmq_github_webhook_routing_key,
+    )
+    return queue
+
+
+async def connect_with_retry(settings: Settings) -> AbstractRobustConnection:
     last_error: Exception | None = None
     for attempt in range(1, settings.rabbitmq_connect_retries + 1):
         try:
