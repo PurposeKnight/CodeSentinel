@@ -1,4 +1,4 @@
-from typing import Protocol
+from typing import Any, Protocol
 
 from app.domain.events import GitHubWebhookEvent
 from app.domain.models import AgentTask, PullRequestReview
@@ -34,4 +34,20 @@ class EventPublisher(Protocol):
 
     async def check(self) -> None:
         """Raise if the publisher is unavailable."""
+
+
+class VulnerabilityExplainer(Protocol):
+    async def explain_vulnerability(
+        self,
+        scanner: str,
+        vulnerability_detail: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Use the LLM to explain a vulnerability and recommend fixes.
+
+        Returns a dict containing:
+          - explanation (str)
+          - recommendation (str)
+          - code_fix (str or None)
+        """
+
 

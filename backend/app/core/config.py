@@ -38,6 +38,9 @@ class Settings(BaseSettings):
 
     github_webhook_secret: SecretStr = Field(default=SecretStr("change-me"))
 
+    openai_api_key: SecretStr = Field(default=SecretStr("mock-key"))
+    openai_model: str = "gpt-4o-mini"
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

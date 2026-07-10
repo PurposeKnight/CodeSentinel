@@ -32,6 +32,23 @@ services:
     volumes:
       - ./backend/app:/app/app:ro
 
+  security-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: ["python", "-m", "app.workers.security_worker"]
+    env_file:
+      - .env
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - ./backend/app:/app/app:ro
+
   postgres:
     image: postgres:16-alpine
     environment:
