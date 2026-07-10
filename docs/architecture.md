@@ -20,7 +20,7 @@ CodeSentinel will use a modular microservice architecture:
 - Deployment Agent: Gates deployment, triggers CI/CD, verifies health, rolls back failures, and reports status.
 - Notification Service: Sends GitHub comments, Slack/email notifications, and dashboard events.
 
-Long-running work should flow through RabbitMQ. FastAPI services should remain responsive and persist workflow state in PostgreSQL, with Redis used for caching, rate limits, temporary workflow state, and idempotency keys.
+Long-running work flows through RabbitMQ. FastAPI services remain responsive and persist workflow state in PostgreSQL, with Redis used for caching, rate limits, temporary workflow state, and idempotency keys.
 
 ## Backend Folder Structure
 
@@ -58,4 +58,4 @@ HTTP routes should be thin. They validate transport details and call application
 
 - `GET /health`: Liveness endpoint for process-level health.
 - `GET /health/ready`: Readiness endpoint that checks PostgreSQL and Redis connectivity.
-- `POST /api/v1/webhooks/github`: Verifies GitHub webhook signatures and accepts events for future workflow processing. Job publishing will be added in a later step.
+- `POST /api/v1/webhooks/github`: Verifies GitHub webhook signatures and publishes accepted events to RabbitMQ for future workflow processing.

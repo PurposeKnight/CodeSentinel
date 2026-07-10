@@ -12,11 +12,17 @@ async def test_health_service_reports_ok_dependencies() -> None:
 
     redis = AsyncMock()
     redis.ping.return_value = True
+    event_publisher = AsyncMock()
 
-    service = HealthService(postgres_pool=pool, redis_client=redis)
+    service = HealthService(
+        postgres_pool=pool,
+        redis_client=redis,
+        event_publisher=event_publisher,
+    )
 
     result = await service.check_dependencies()
 
     assert result["postgres"].status == "ok"
     assert result["redis"].status == "ok"
+    assert result["rabbitmq"].status == "ok"
     assert isinstance(result["postgres"], DependencyHealth)

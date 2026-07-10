@@ -1,28 +1,36 @@
 import hashlib
 import hmac
 import json
-from dataclasses import dataclass
-from typing import Any
 
 from app.core.config import Settings
+from app.domain.events import GitHubWebhookEvent
+from app.domain.ports import EventPublisher
 
 
 class WebhookVerificationError(Exception):
     """Raised when a webhook cannot be trusted or parsed."""
 
 
-@dataclass(frozen=True, slots=True)
-class GitHubWebhookEvent:
-    event: str
-    delivery_id: str | None
-    action: str | None
-    repository_full_name: str | None
-    payload: dict[str, Any]
-
-
 class GitHubWebhookService:
-    def __init__(self, settings: Settings) -> None:
+    def __init__(self, settings: Settings, event_publisher: EventPublisher) -> None:
         self._settings = settings
+        self._event_publisher = event_publisher
+
+    async def accept_event(
+        self,
+        raw_body: bytes,
+        signature: str | None,
+        event_type: str | None,
+        delivery_id: str | None,
+    ) -> GitHubWebhookEvent:
+        event = self.parse_event(
+            raw_body=raw_body,
+            signature=signature,
+            event_type=event_type,
+            delivery_id=delivery_id,
+        )
+        await self._event_publisher.publish_github_webhook(event)
+        return event
 
     def parse_event(
         self,

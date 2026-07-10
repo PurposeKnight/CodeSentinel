@@ -9,7 +9,7 @@ from app.services.webhook_service import GitHubWebhookService, WebhookVerificati
 
 def test_parse_event_accepts_valid_github_signature() -> None:
     settings = Settings(github_webhook_secret="test-secret")
-    service = GitHubWebhookService(settings=settings)
+    service = GitHubWebhookService(settings=settings, event_publisher=AsyncEventPublisher())
     body = b'{"action":"opened","repository":{"full_name":"PurposeKnight/CodeSentinel"}}'
     signature = _signature(secret="test-secret", body=body)
 
@@ -28,7 +28,7 @@ def test_parse_event_accepts_valid_github_signature() -> None:
 
 def test_parse_event_rejects_invalid_github_signature() -> None:
     settings = Settings(github_webhook_secret="test-secret")
-    service = GitHubWebhookService(settings=settings)
+    service = GitHubWebhookService(settings=settings, event_publisher=AsyncEventPublisher())
 
     with pytest.raises(WebhookVerificationError):
         service.parse_event(
@@ -37,6 +37,33 @@ def test_parse_event_rejects_invalid_github_signature() -> None:
             event_type="pull_request",
             delivery_id="delivery-1",
         )
+
+
+async def test_accept_event_publishes_verified_event() -> None:
+    publisher = AsyncEventPublisher()
+    settings = Settings(github_webhook_secret="test-secret")
+    service = GitHubWebhookService(settings=settings, event_publisher=publisher)
+    body = b'{"action":"opened","repository":{"full_name":"PurposeKnight/CodeSentinel"}}'
+
+    event = await service.accept_event(
+        raw_body=body,
+        signature=_signature(secret="test-secret", body=body),
+        event_type="pull_request",
+        delivery_id="delivery-2",
+    )
+
+    assert publisher.published == [event]
+
+
+class AsyncEventPublisher:
+    def __init__(self) -> None:
+        self.published = []
+
+    async def publish_github_webhook(self, event) -> None:  # noqa: ANN001
+        self.published.append(event)
+
+    async def check(self) -> None:
+        return None
 
 
 def _signature(secret: str, body: bytes) -> str:

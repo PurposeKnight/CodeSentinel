@@ -8,6 +8,7 @@ This first milestone contains the production-oriented FastAPI backend foundation
 - Environment-based configuration
 - Structured logging
 - PostgreSQL and Redis connectivity wiring
+- RabbitMQ event publishing for verified GitHub webhooks
 - Docker and Docker Compose support
 - Health and readiness endpoints
 - GitHub webhook placeholder endpoint
@@ -39,6 +40,7 @@ Useful endpoints:
 - `POST /api/v1/webhooks/github`
 
 GitHub webhook requests must include `X-Hub-Signature-256`, signed with `GITHUB_WEBHOOK_SECRET`.
+Verified webhook events are published to RabbitMQ for asynchronous workflow processing.
 
 Run backend tests locally:
 

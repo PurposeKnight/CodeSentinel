@@ -28,7 +28,7 @@ async def github_webhook(
 ) -> GitHubWebhookAccepted:
     raw_body = await request.body()
     try:
-        event = webhook_service.parse_event(
+        event = await webhook_service.accept_event(
             raw_body=raw_body,
             signature=x_hub_signature_256,
             event_type=x_github_event,
@@ -60,5 +60,5 @@ async def github_webhook(
         delivery_id=event.delivery_id,
         action=event.action,
         repository=event.repository_full_name,
-        message="GitHub webhook verified and accepted for future workflow processing.",
+        message="GitHub webhook verified and queued for workflow processing.",
     )
