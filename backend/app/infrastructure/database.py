@@ -1,3 +1,5 @@
+import pathlib
+
 import asyncpg
 
 from app.core.config import Settings
@@ -25,3 +27,16 @@ async def close_postgres_pool(pool: asyncpg.Pool | None) -> None:
         return
     await pool.close()
     logger.info("postgres_pool_closed")
+
+
+async def init_db(pool: asyncpg.Pool) -> None:
+    logger.info("postgres_db_initializing")
+    schema_path = pathlib.Path(__file__).parent / "schema.sql"
+    with schema_path.open("r", encoding="utf-8") as f:
+        schema_sql = f.read()
+
+    async with pool.acquire() as connection:
+        async with connection.transaction():
+            await connection.execute(schema_sql)
+    logger.info("postgres_db_initialized")
+

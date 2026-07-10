@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from app.api.routes import health, webhooks
 from app.core.config import Settings, get_settings
 from app.core.logging import configure_logging, get_logger
-from app.infrastructure.database import close_postgres_pool, create_postgres_pool
+from app.infrastructure.database import close_postgres_pool, create_postgres_pool, init_db
 from app.infrastructure.rabbitmq import close_event_publisher, create_event_publisher
 from app.infrastructure.redis import close_redis_client, create_redis_client
 
@@ -21,8 +21,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     logger.info("application_starting", app_name=settings.app_name, environment=settings.app_env)
     app.state.settings = settings
     app.state.postgres_pool = await create_postgres_pool(settings)
+    await init_db(app.state.postgres_pool)
     app.state.redis_client = create_redis_client(settings)
     app.state.event_publisher = await create_event_publisher(settings)
+
 
     try:
         yield

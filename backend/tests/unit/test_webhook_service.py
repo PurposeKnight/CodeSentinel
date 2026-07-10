@@ -62,6 +62,16 @@ class AsyncEventPublisher:
     async def publish_github_webhook(self, event) -> None:  # noqa: ANN001
         self.published.append(event)
 
+    async def publish_agent_task(
+        self,
+        review_id: str,
+        task_id: str,
+        agent: str,
+        repository: str,
+        pull_request_number: int,
+    ) -> None:
+        pass
+
     async def check(self) -> None:
         return None
 
