@@ -16,7 +16,10 @@ class OpenAIVulnerabilityExplainer(VulnerabilityExplainer):
         api_key = settings.openai_api_key.get_secret_value()
         self._is_mock = api_key == "mock-key"
         if not self._is_mock:
-            self._client = AsyncOpenAI(api_key=api_key)
+            self._client = AsyncOpenAI(
+                api_key=api_key,
+                base_url=settings.openai_api_base,
+            )
         else:
             self._client = None
 

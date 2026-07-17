@@ -18,6 +18,15 @@ class PullRequestReview:
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
+    def calculate_overall_score(self) -> int | None:
+        scores = [
+            s for s in (self.security_score, self.performance_score, self.architecture_score, self.documentation_score)
+            if s is not None
+        ]
+        if not scores:
+            return None
+        return int(sum(scores) / len(scores))
+
 
 @dataclass(frozen=True, slots=True)
 class AgentTask:

@@ -71,3 +71,31 @@ class GitService:
             raise RuntimeError(f"Git checkout PR failed: {err_msg}")
 
         logger.info("git_checkout_pr_completed", repository=repository, pr_number=pr_number)
+
+    async def get_diff(self, target_dir: str) -> str:
+        logger.info("git_get_diff_starting", target_dir=target_dir)
+        # Try diffing against HEAD~1 (the commits added in the PR branch)
+        proc = await asyncio.create_subprocess_exec(
+            "git",
+            "-C",
+            target_dir,
+            "diff",
+            "HEAD~1",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, _ = await proc.communicate()
+        if proc.returncode == 0:
+            return stdout.decode("utf-8", errors="ignore")
+
+        # Fallback to general diff against unstaged/staged files
+        proc = await asyncio.create_subprocess_exec(
+            "git",
+            "-C",
+            target_dir,
+            "diff",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, _ = await proc.communicate()
+        return stdout.decode("utf-8", errors="ignore")

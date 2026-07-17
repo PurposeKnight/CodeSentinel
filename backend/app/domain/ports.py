@@ -51,3 +51,33 @@ class VulnerabilityExplainer(Protocol):
         """
 
 
+class CodeReviewer(Protocol):
+    async def review_code(self, diff: str) -> dict[str, Any]:
+        """Use LLM to review the changes diff and return analysis.
+
+        Returns a dict containing:
+          - architecture_score (int)
+          - performance_score (int)
+          - findings (list of dict)
+        """
+
+
+class TestAnalyzer(Protocol):
+    async def analyze_tests(self, target_dir: str) -> dict[str, Any]:
+        """Use LLM / local logic to check for missing tests and suggest test cases.
+
+        Returns a dict containing:
+          - findings (list of dict)
+        """
+
+
+class DocAnalyzer(Protocol):
+    async def analyze_documentation(self, target_dir: str) -> dict[str, Any]:
+        """Use LLM / local logic to assess docs, docstrings, API doc impact.
+
+        Returns a dict containing:
+          - documentation_score (int)
+          - findings (list of dict)
+        """
+
+

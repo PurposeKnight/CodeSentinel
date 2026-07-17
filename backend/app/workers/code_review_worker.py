@@ -12,29 +12,29 @@ from app.domain.models import AgentTask, PullRequestReview
 from app.domain.ports import ReviewRepository
 from app.infrastructure.database import close_postgres_pool, create_postgres_pool, init_db
 from app.infrastructure.git_service import GitService
-from app.infrastructure.openai_explainer import OpenAIVulnerabilityExplainer
+from app.infrastructure.openai_code_reviewer import OpenAICodeReviewer
 from app.infrastructure.postgres_repository import PostgresReviewRepository
 from app.infrastructure.rabbitmq import connect_with_retry, declare_all_topology
-from app.services.security_agent_service import SecurityAgentService
+from app.services.code_review_agent_service import CodeReviewAgentService
 
 logger = get_logger(__name__)
 
 
-class SecurityWorker:
+class CodeReviewWorker:
     def __init__(
         self,
         settings: Settings,
         repository: ReviewRepository,
-        security_service: SecurityAgentService,
+        code_review_service: CodeReviewAgentService,
     ) -> None:
         self._settings = settings
         self._repository = repository
-        self._security_service = security_service
+        self._code_review_service = code_review_service
         self._stop_event = asyncio.Event()
 
     async def run(self) -> None:
         configure_logging(self._settings)
-        logger.info("security_worker_starting")
+        logger.info("code_review_worker_starting")
 
         connection = await connect_with_retry(self._settings)
         channel = await connection.channel()
@@ -43,17 +43,17 @@ class SecurityWorker:
 
         await declare_all_topology(channel, self._settings)
         queue = await channel.declare_queue(
-            "codesentinel.tasks.security",
+            "codesentinel.tasks.code_review",
             durable=True,
         )
 
         await queue.consume(self._handle_message)
-        logger.info("security_worker_consuming", queue="codesentinel.tasks.security")
+        logger.info("code_review_worker_consuming", queue="codesentinel.tasks.code_review")
 
         try:
             await self._stop_event.wait()
         finally:
-            logger.info("security_worker_stopping")
+            logger.info("code_review_worker_stopping")
             await channel.close()
             await connection.close()
 
@@ -65,7 +65,7 @@ class SecurityWorker:
             try:
                 payload = json.loads(message.body.decode("utf-8"))
             except Exception as exc:
-                logger.error("security_worker_decode_payload_failed", error=str(exc))
+                logger.error("code_review_worker_decode_payload_failed", error=str(exc))
                 return
 
             review_id = payload.get("review_id")
@@ -74,11 +74,11 @@ class SecurityWorker:
             pr_number = payload.get("pull_request_number", 0)
 
             if not review_id or not task_id or not repository_name:
-                logger.error("security_worker_invalid_payload", payload=payload)
+                logger.error("code_review_worker_invalid_payload", payload=payload)
                 return
 
             logger.info(
-                "security_worker_processing_task",
+                "code_review_worker_processing_task",
                 task_id=task_id,
                 review_id=review_id,
                 repository=repository_name,
@@ -90,39 +90,35 @@ class SecurityWorker:
                 AgentTask(
                     id=task_id,
                     review_id=review_id,
-                    agent="security-agent",
+                    agent="code-review-agent",
                     status="running",
-                    reason="Security scanners execution in progress",
+                    reason="Code review analysis in progress",
                 )
             )
 
-            # 2. Run security analysis
+            # 2. Run code review analysis
             try:
-                report = await self._security_service.run_security_analysis(
+                report = await self._code_review_service.run_code_review(
                     repository=repository_name,
                     pr_number=pr_number,
                 )
 
-                # Compute security score
-                summary = report.get("summary", {})
-                critical = summary.get("critical", 0)
-                high = summary.get("high", 0)
-                medium = summary.get("medium", 0)
-
-                security_score = max(0, 100 - (critical * 25) - (high * 15) - (medium * 5))
+                # Extract architecture and performance score
+                arch_score = report.get("architecture_score", 100)
+                perf_score = report.get("performance_score", 100)
 
                 # 3. Save task as completed with report details
                 await self._repository.save_task(
                     AgentTask(
                         id=task_id,
                         review_id=review_id,
-                        agent="security-agent",
+                        agent="code-review-agent",
                         status="completed",
                         report=report,
                     )
                 )
 
-                # 4. Update the parent review with security score
+                # 4. Update the parent review with scores
                 review = await self._repository.get_review(review_id)
                 if review:
                     temp_review = PullRequestReview(
@@ -132,9 +128,9 @@ class SecurityWorker:
                         delivery_id=review.delivery_id,
                         status=review.status,
                         score=review.score,
-                        security_score=security_score,
-                        performance_score=review.performance_score,
-                        architecture_score=review.architecture_score,
+                        security_score=review.security_score,
+                        performance_score=perf_score,
+                        architecture_score=arch_score,
                         documentation_score=review.documentation_score,
                     )
                     overall_score = temp_review.calculate_overall_score()
@@ -145,22 +141,23 @@ class SecurityWorker:
                         delivery_id=review.delivery_id,
                         status=review.status,
                         score=overall_score,
-                        security_score=security_score,
-                        performance_score=review.performance_score,
-                        architecture_score=review.architecture_score,
+                        security_score=review.security_score,
+                        performance_score=perf_score,
+                        architecture_score=arch_score,
                         documentation_score=review.documentation_score,
                     )
                     await self._repository.save_review(updated_review)
 
                 logger.info(
-                    "security_worker_task_completed",
+                    "code_review_worker_task_completed",
                     task_id=task_id,
                     review_id=review_id,
-                    security_score=security_score,
+                    architecture_score=arch_score,
+                    performance_score=perf_score,
                 )
             except Exception as exc:
                 logger.error(
-                    "security_worker_task_failed",
+                    "code_review_worker_task_failed",
                     task_id=task_id,
                     review_id=review_id,
                     error=str(exc),
@@ -170,7 +167,7 @@ class SecurityWorker:
                     AgentTask(
                         id=task_id,
                         review_id=review_id,
-                        agent="security-agent",
+                        agent="code-review-agent",
                         status="failed",
                         reason=f"Execution error: {str(exc)}",
                     )
@@ -180,7 +177,7 @@ class SecurityWorker:
 async def run_worker(
     settings_factory: Callable[[], Settings] = get_settings,
     worker_factory: (
-        Callable[[Settings, PostgresReviewRepository, SecurityAgentService], SecurityWorker] | None
+        Callable[[Settings, PostgresReviewRepository, CodeReviewAgentService], CodeReviewWorker] | None
     ) = None,
 ) -> None:
     settings = settings_factory()
@@ -191,16 +188,16 @@ async def run_worker(
     repository = PostgresReviewRepository(postgres_pool)
 
     git_service = GitService()
-    explainer = OpenAIVulnerabilityExplainer(settings)
-    security_service = SecurityAgentService(git_service, explainer)
+    reviewer = OpenAICodeReviewer(settings)
+    code_review_service = CodeReviewAgentService(git_service, reviewer)
 
     if worker_factory:
-        worker = worker_factory(settings, repository, security_service)
+        worker = worker_factory(settings, repository, code_review_service)
     else:
-        worker = SecurityWorker(
+        worker = CodeReviewWorker(
             settings=settings,
             repository=repository,
-            security_service=security_service,
+            code_review_service=code_review_service,
         )
 
     loop = asyncio.get_running_loop()
