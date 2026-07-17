@@ -1,17 +1,42 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import Link from "next/link";
+import { cookies } from "next/headers";
+import NavProfile from "@/components/NavProfile";
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 export const metadata: Metadata = {
   title: "CodeSentinel | Multi-Agent Code Reviewer",
   description: "Autonomous multi-agent code reviewer and vulnerability scanner dashboard.",
 };
 
-export default function RootLayout({
+async function getMe(): Promise<any | null> {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("session_token")?.value;
+  if (!token) return null;
+
+  try {
+    const res = await fetch(`${API_URL}/api/v1/auth/me`, {
+      headers: { Cookie: `session_token=${token}` },
+      cache: "no-store",
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (e) {
+    console.error("Error fetching current user profile:", e);
+  }
+  return null;
+}
+
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const user = await getMe();
+
   return (
     <html lang="en">
       <body>
@@ -20,11 +45,7 @@ export default function RootLayout({
             <span className="pulsing-indicator"></span>
             <span className="logo-text">CODESENTINEL</span>
           </Link>
-          <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.85rem', color: 'var(--foreground-muted)', fontWeight: 500 }}>
-              System Status: Active
-            </span>
-          </div>
+          <NavProfile user={user} />
         </nav>
         {children}
       </body>

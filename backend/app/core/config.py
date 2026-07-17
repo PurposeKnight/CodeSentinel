@@ -38,6 +38,9 @@ class Settings(BaseSettings):
 
     github_webhook_secret: SecretStr = Field(default=SecretStr("change-me"))
     github_token: SecretStr = Field(default=SecretStr("mock-token"))
+    github_client_id: str | None = None
+    github_client_secret: SecretStr | None = None
+    github_redirect_uri: str | None = None
 
     openai_api_key: SecretStr = Field(default=SecretStr("mock-key"))
     openai_api_base: str | None = None

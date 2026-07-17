@@ -4,7 +4,7 @@ from typing import Any
 
 import asyncpg
 
-from app.domain.models import AgentTask, PullRequestReview
+from app.domain.models import AgentTask, PullRequestReview, User, UserSession
 from app.domain.ports import ReviewRepository
 
 
@@ -163,3 +163,109 @@ class PostgresReviewRepository(ReviewRepository):
                     )
                 )
             return reviews
+
+    async def save_user(self, user: User) -> None:
+        sql = """
+            INSERT INTO users (id, github_id, username, email, avatar_url, github_token, updated_at)
+            VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)
+            ON CONFLICT (github_id) DO UPDATE
+            SET username = EXCLUDED.username,
+                email = EXCLUDED.email,
+                avatar_url = EXCLUDED.avatar_url,
+                github_token = EXCLUDED.github_token,
+                updated_at = CURRENT_TIMESTAMP
+        """
+        async with self._pool.acquire() as connection:
+            await connection.execute(
+                sql,
+                uuid.UUID(user.id),
+                user.github_id,
+                user.username,
+                user.email,
+                user.avatar_url,
+                user.github_token,
+            )
+
+    async def get_user_by_github_id(self, github_id: int) -> User | None:
+        sql = """
+            SELECT id, github_id, username, email, avatar_url, github_token, created_at, updated_at
+            FROM users
+            WHERE github_id = $1
+        """
+        async with self._pool.acquire() as connection:
+            row = await connection.fetchrow(sql, github_id)
+            if not row:
+                return None
+            return User(
+                id=str(row["id"]),
+                github_id=row["github_id"],
+                username=row["username"],
+                email=row["email"],
+                avatar_url=row["avatar_url"],
+                github_token=row["github_token"],
+                created_at=row["created_at"],
+                updated_at=row["updated_at"],
+            )
+
+    async def get_user(self, user_id: str) -> User | None:
+        sql = """
+            SELECT id, github_id, username, email, avatar_url, github_token, created_at, updated_at
+            FROM users
+            WHERE id = $1
+        """
+        async with self._pool.acquire() as connection:
+            try:
+                user_uuid = uuid.UUID(user_id)
+            except ValueError:
+                return None
+            row = await connection.fetchrow(sql, user_uuid)
+            if not row:
+                return None
+            return User(
+                id=str(row["id"]),
+                github_id=row["github_id"],
+                username=row["username"],
+                email=row["email"],
+                avatar_url=row["avatar_url"],
+                github_token=row["github_token"],
+                created_at=row["created_at"],
+                updated_at=row["updated_at"],
+            )
+
+    async def save_session(self, session: UserSession) -> None:
+        sql = """
+            INSERT INTO user_sessions (session_token, user_id, expires_at)
+            VALUES ($1, $2, $3)
+        """
+        async with self._pool.acquire() as connection:
+            await connection.execute(
+                sql,
+                session.session_token,
+                uuid.UUID(session.user_id),
+                session.expires_at,
+            )
+
+    async def get_session(self, session_token: str) -> UserSession | None:
+        sql = """
+            SELECT session_token, user_id, expires_at, created_at
+            FROM user_sessions
+            WHERE session_token = $1
+        """
+        async with self._pool.acquire() as connection:
+            row = await connection.fetchrow(sql, session_token)
+            if not row:
+                return None
+            return UserSession(
+                session_token=row["session_token"],
+                user_id=str(row["user_id"]),
+                expires_at=row["expires_at"],
+                created_at=row["created_at"],
+            )
+
+    async def delete_session(self, session_token: str) -> None:
+        sql = """
+            DELETE FROM user_sessions
+            WHERE session_token = $1
+        """
+        async with self._pool.acquire() as connection:
+            await connection.execute(sql, session_token)

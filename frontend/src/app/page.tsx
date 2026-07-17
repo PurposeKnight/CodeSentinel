@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 interface PullRequestReview {
-  id: str;
+  id: string;
   repository: string;
   pull_request_number: number;
   delivery_id: string | null;
@@ -18,9 +20,12 @@ interface PullRequestReview {
   updated_at: string;
 }
 
-async function getReviews(): Promise<PullRequestReview[]> {
+async function getReviews(token: string): Promise<PullRequestReview[]> {
   try {
-    const res = await fetch(`${API_URL}/api/v1/reviews`, { cache: "no-store" });
+    const res = await fetch(`${API_URL}/api/v1/reviews`, {
+      headers: { Cookie: `session_token=${token}` },
+      cache: "no-store",
+    });
     if (!res.ok) {
       throw new Error("Failed to fetch reviews");
     }
@@ -32,7 +37,13 @@ async function getReviews(): Promise<PullRequestReview[]> {
 }
 
 export default async function DashboardPage() {
-  const reviews = await getReviews();
+  const cookieStore = await cookies();
+  const sessionToken = cookieStore.get("session_token")?.value;
+  if (!sessionToken) {
+    redirect("/login");
+  }
+
+  const reviews = await getReviews(sessionToken);
 
   // Compute metrics
   const totalReviews = reviews.length;

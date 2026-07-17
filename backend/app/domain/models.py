@@ -38,3 +38,23 @@ class AgentTask:
     report: dict[str, Any] | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class User:
+    id: str
+    github_id: int
+    username: str
+    email: str | None
+    avatar_url: str | None
+    github_token: str
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class UserSession:
+    session_token: str
+    user_id: str
+    expires_at: datetime
+    created_at: datetime | None = None

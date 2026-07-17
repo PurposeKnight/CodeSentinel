@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import health, reviews, webhooks
+from app.api.routes import auth, health, reviews, webhooks
 from app.core.config import Settings, get_settings
 from app.core.logging import configure_logging, get_logger
 from app.infrastructure.database import close_postgres_pool, create_postgres_pool, init_db
@@ -60,6 +60,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(health.router, tags=["health"])
     app.include_router(webhooks.router, prefix=app_settings.api_v1_prefix, tags=["webhooks"])
     app.include_router(reviews.router, prefix=app_settings.api_v1_prefix, tags=["reviews"])
+    app.include_router(auth.router, prefix=app_settings.api_v1_prefix, tags=["auth"])
 
     return app
 

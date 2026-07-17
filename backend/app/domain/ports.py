@@ -1,7 +1,7 @@
 from typing import Any, Protocol
 
 from app.domain.events import GitHubWebhookEvent
-from app.domain.models import AgentTask, PullRequestReview
+from app.domain.models import AgentTask, PullRequestReview, User, UserSession
 
 
 class ReviewRepository(Protocol):
@@ -19,6 +19,24 @@ class ReviewRepository(Protocol):
 
     async def list_reviews(self) -> list[PullRequestReview]:
         """Retrieve all pull request reviews, ordered by creation date."""
+
+    async def save_user(self, user: User) -> None:
+        """Save or update user details."""
+
+    async def get_user_by_github_id(self, github_id: int) -> User | None:
+        """Retrieve a user by their unique GitHub ID."""
+
+    async def get_user(self, user_id: str) -> User | None:
+        """Retrieve a user by their unique database ID."""
+
+    async def save_session(self, session: UserSession) -> None:
+        """Save a new user session."""
+
+    async def get_session(self, session_token: str) -> UserSession | None:
+        """Retrieve an active user session."""
+
+    async def delete_session(self, session_token: str) -> None:
+        """Delete/revoke a user session."""
 
 
 class EventPublisher(Protocol):
