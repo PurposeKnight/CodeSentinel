@@ -1,8 +1,6 @@
-from typing import Any
-
 from app.core.logging import get_logger
 from app.domain.models import PullRequestReview
-from app.domain.ports import NotificationPublisher, ReviewRepository
+from app.domain.ports import NotificationPublisher, ReviewRepository, SlackPublisher
 
 logger = get_logger(__name__)
 
@@ -12,9 +10,11 @@ class ReviewCoordinator:
         self,
         repository: ReviewRepository,
         notifier: NotificationPublisher,
+        slack_publisher: SlackPublisher | None = None,
     ) -> None:
         self._repository = repository
         self._notifier = notifier
+        self._slack_publisher = slack_publisher
 
     async def check_and_finalize_review(self, review_id: str) -> None:
         review = await self._repository.get_review(review_id)
@@ -90,4 +90,16 @@ class ReviewCoordinator:
             review_summary=review_summary,
             findings=all_findings,
         )
+
+        # Publish Slack notifications if publisher is configured
+        if self._slack_publisher:
+            await self._slack_publisher.publish_review_alert(
+                repository=review.repository,
+                pr_number=review.pull_request_number,
+                score=overall_score,
+                status=new_status,
+                findings_count=len(all_findings),
+                review_id=review.id,
+            )
+
         logger.info("review_coordinator_finalized_and_notified", review_id=review_id)

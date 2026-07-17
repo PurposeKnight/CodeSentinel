@@ -39,6 +39,19 @@ class ReviewRepository(Protocol):
         """Delete/revoke a user session."""
 
 
+class SlackPublisher(Protocol):
+    async def publish_review_alert(
+        self,
+        repository: str,
+        pr_number: int,
+        score: int | None,
+        status: str,
+        findings_count: int,
+        review_id: str,
+    ) -> None:
+        """Publish a summary alert of the review to Slack channels."""
+
+
 class EventPublisher(Protocol):
     async def publish_github_webhook(self, event: GitHubWebhookEvent) -> None:
         """Publish a verified GitHub webhook event for asynchronous processing."""

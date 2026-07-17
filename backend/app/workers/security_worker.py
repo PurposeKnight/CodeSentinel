@@ -13,6 +13,7 @@ from app.domain.ports import ReviewRepository
 from app.infrastructure.database import close_postgres_pool, create_postgres_pool, init_db
 from app.infrastructure.git_service import GitService
 from app.infrastructure.github_notifier import GitHubNotificationPublisher
+from app.infrastructure.slack_notifier import SlackNotificationPublisher
 from app.infrastructure.openai_explainer import OpenAIVulnerabilityExplainer
 from app.infrastructure.postgres_repository import PostgresReviewRepository
 from app.infrastructure.rabbitmq import connect_with_retry, declare_all_topology
@@ -201,7 +202,8 @@ async def run_worker(
     security_service = SecurityAgentService(git_service, explainer)
 
     notifier = GitHubNotificationPublisher(settings)
-    coordinator = ReviewCoordinator(repository, notifier)
+    slack_notifier = SlackNotificationPublisher(settings)
+    coordinator = ReviewCoordinator(repository, notifier, slack_notifier)
 
     if worker_factory:
         worker = worker_factory(settings, repository, security_service, coordinator)

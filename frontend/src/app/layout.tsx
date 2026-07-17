@@ -41,10 +41,28 @@ export default async function RootLayout({
     <html lang="en">
       <body>
         <nav className="nav-container">
-          <Link href="/" className="logo-link">
-            <span className="pulsing-indicator"></span>
-            <span className="logo-text">CODESENTINEL</span>
-          </Link>
+          <div style={{ display: "flex", alignItems: "center", gap: "32px" }}>
+            <Link href="/" className="logo-link" style={{ marginRight: "8px" }}>
+              <span className="pulsing-indicator"></span>
+              <span className="logo-text">CODESENTINEL</span>
+            </Link>
+            {user && (
+              <Link 
+                href="/repositories" 
+                style={{ 
+                  textDecoration: "none", 
+                  fontSize: "0.875rem", 
+                  fontWeight: 600, 
+                  color: "var(--foreground-muted)",
+                  transition: "color 0.2s ease" 
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.color = "var(--foreground)"}
+                onMouseLeave={(e) => e.currentTarget.style.color = "var(--foreground-muted)"}
+              >
+                Repositories
+              </Link>
+            )}
+          </div>
           <NavProfile user={user} />
         </nav>
         {children}

@@ -41,6 +41,7 @@ class Settings(BaseSettings):
     github_client_id: str | None = None
     github_client_secret: SecretStr | None = None
     github_redirect_uri: str | None = None
+    slack_webhook_url: SecretStr | None = None
 
     openai_api_key: SecretStr = Field(default=SecretStr("mock-key"))
     openai_api_base: str | None = None
