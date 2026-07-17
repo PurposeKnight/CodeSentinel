@@ -12,10 +12,12 @@ from app.domain.models import AgentTask, PullRequestReview
 from app.domain.ports import ReviewRepository
 from app.infrastructure.database import close_postgres_pool, create_postgres_pool, init_db
 from app.infrastructure.git_service import GitService
+from app.infrastructure.github_notifier import GitHubNotificationPublisher
 from app.infrastructure.openai_doc_analyzer import OpenAIDocAnalyzer
 from app.infrastructure.postgres_repository import PostgresReviewRepository
 from app.infrastructure.rabbitmq import connect_with_retry, declare_all_topology
 from app.services.documentation_agent_service import DocumentationAgentService
+from app.services.review_coordinator import ReviewCoordinator
 
 logger = get_logger(__name__)
 
@@ -26,10 +28,12 @@ class DocumentationWorker:
         settings: Settings,
         repository: ReviewRepository,
         documentation_service: DocumentationAgentService,
+        coordinator: ReviewCoordinator,
     ) -> None:
         self._settings = settings
         self._repository = repository
         self._documentation_service = documentation_service
+        self._coordinator = coordinator
         self._stop_event = asyncio.Event()
 
     async def run(self) -> None:
@@ -170,12 +174,14 @@ class DocumentationWorker:
                         reason=f"Execution error: {str(exc)}",
                     )
                 )
+            finally:
+                await self._coordinator.check_and_finalize_review(review_id)
 
 
 async def run_worker(
     settings_factory: Callable[[], Settings] = get_settings,
     worker_factory: (
-        Callable[[Settings, PostgresReviewRepository, DocumentationAgentService], DocumentationWorker] | None
+        Callable[[Settings, PostgresReviewRepository, DocumentationAgentService, ReviewCoordinator], DocumentationWorker] | None
     ) = None,
 ) -> None:
     settings = settings_factory()
@@ -189,13 +195,17 @@ async def run_worker(
     doc_analyzer = OpenAIDocAnalyzer(settings)
     documentation_service = DocumentationAgentService(git_service, doc_analyzer)
 
+    notifier = GitHubNotificationPublisher(settings)
+    coordinator = ReviewCoordinator(repository, notifier)
+
     if worker_factory:
-        worker = worker_factory(settings, repository, documentation_service)
+        worker = worker_factory(settings, repository, documentation_service, coordinator)
     else:
         worker = DocumentationWorker(
             settings=settings,
             repository=repository,
             documentation_service=documentation_service,
+            coordinator=coordinator,
         )
 
     loop = asyncio.get_running_loop()

@@ -37,6 +37,7 @@ class Settings(BaseSettings):
     planner_worker_prefetch_count: int = 5
 
     github_webhook_secret: SecretStr = Field(default=SecretStr("change-me"))
+    github_token: SecretStr = Field(default=SecretStr("mock-token"))
 
     openai_api_key: SecretStr = Field(default=SecretStr("mock-key"))
     openai_api_base: str | None = None

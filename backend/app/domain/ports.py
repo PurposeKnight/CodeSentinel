@@ -81,3 +81,14 @@ class DocAnalyzer(Protocol):
         """
 
 
+class NotificationPublisher(Protocol):
+    async def publish_pr_review(
+        self,
+        repository: str,
+        pr_number: int,
+        review_summary: dict[str, Any],
+        findings: list[dict[str, Any]],
+    ) -> None:
+        """Publish a pull request review with a summary and line-level comments/findings."""
+
+

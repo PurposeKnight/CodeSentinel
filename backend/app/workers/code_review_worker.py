@@ -12,10 +12,12 @@ from app.domain.models import AgentTask, PullRequestReview
 from app.domain.ports import ReviewRepository
 from app.infrastructure.database import close_postgres_pool, create_postgres_pool, init_db
 from app.infrastructure.git_service import GitService
+from app.infrastructure.github_notifier import GitHubNotificationPublisher
 from app.infrastructure.openai_code_reviewer import OpenAICodeReviewer
 from app.infrastructure.postgres_repository import PostgresReviewRepository
 from app.infrastructure.rabbitmq import connect_with_retry, declare_all_topology
 from app.services.code_review_agent_service import CodeReviewAgentService
+from app.services.review_coordinator import ReviewCoordinator
 
 logger = get_logger(__name__)
 
@@ -26,10 +28,12 @@ class CodeReviewWorker:
         settings: Settings,
         repository: ReviewRepository,
         code_review_service: CodeReviewAgentService,
+        coordinator: ReviewCoordinator,
     ) -> None:
         self._settings = settings
         self._repository = repository
         self._code_review_service = code_review_service
+        self._coordinator = coordinator
         self._stop_event = asyncio.Event()
 
     async def run(self) -> None:
@@ -172,12 +176,14 @@ class CodeReviewWorker:
                         reason=f"Execution error: {str(exc)}",
                     )
                 )
+            finally:
+                await self._coordinator.check_and_finalize_review(review_id)
 
 
 async def run_worker(
     settings_factory: Callable[[], Settings] = get_settings,
     worker_factory: (
-        Callable[[Settings, PostgresReviewRepository, CodeReviewAgentService], CodeReviewWorker] | None
+        Callable[[Settings, PostgresReviewRepository, CodeReviewAgentService, ReviewCoordinator], CodeReviewWorker] | None
     ) = None,
 ) -> None:
     settings = settings_factory()
@@ -191,13 +197,17 @@ async def run_worker(
     reviewer = OpenAICodeReviewer(settings)
     code_review_service = CodeReviewAgentService(git_service, reviewer)
 
+    notifier = GitHubNotificationPublisher(settings)
+    coordinator = ReviewCoordinator(repository, notifier)
+
     if worker_factory:
-        worker = worker_factory(settings, repository, code_review_service)
+        worker = worker_factory(settings, repository, code_review_service, coordinator)
     else:
         worker = CodeReviewWorker(
             settings=settings,
             repository=repository,
             code_review_service=code_review_service,
+            coordinator=coordinator,
         )
 
     loop = asyncio.get_running_loop()

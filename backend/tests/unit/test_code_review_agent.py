@@ -64,7 +64,8 @@ async def test_code_review_worker_message_processing() -> None:
         "findings": [],
     }
 
-    worker = CodeReviewWorker(settings, mock_repo, mock_service)
+    mock_coordinator = AsyncMock()
+    worker = CodeReviewWorker(settings, mock_repo, mock_service, mock_coordinator)
 
     # Mock incoming message
     message = MagicMock(spec=AbstractIncomingMessage)
@@ -90,3 +91,6 @@ async def test_code_review_worker_message_processing() -> None:
     assert saved_review.architecture_score == 90
     assert saved_review.performance_score == 80
     assert saved_review.score == 83
+
+    # Verify coordinator finalization is called
+    mock_coordinator.check_and_finalize_review.assert_called_once_with("a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1")

@@ -12,9 +12,11 @@ from app.domain.models import AgentTask, PullRequestReview
 from app.domain.ports import ReviewRepository
 from app.infrastructure.database import close_postgres_pool, create_postgres_pool, init_db
 from app.infrastructure.git_service import GitService
+from app.infrastructure.github_notifier import GitHubNotificationPublisher
 from app.infrastructure.openai_test_analyzer import OpenAITestAnalyzer
 from app.infrastructure.postgres_repository import PostgresReviewRepository
 from app.infrastructure.rabbitmq import connect_with_retry, declare_all_topology
+from app.services.review_coordinator import ReviewCoordinator
 from app.services.testing_agent_service import TestingAgentService
 
 logger = get_logger(__name__)
@@ -28,10 +30,12 @@ class TestingWorker:
         settings: Settings,
         repository: ReviewRepository,
         testing_service: TestingAgentService,
+        coordinator: ReviewCoordinator,
     ) -> None:
         self._settings = settings
         self._repository = repository
         self._testing_service = testing_service
+        self._coordinator = coordinator
         self._stop_event = asyncio.Event()
 
     async def run(self) -> None:
@@ -156,12 +160,14 @@ class TestingWorker:
                         reason=f"Execution error: {str(exc)}",
                     )
                 )
+            finally:
+                await self._coordinator.check_and_finalize_review(review_id)
 
 
 async def run_worker(
     settings_factory: Callable[[], Settings] = get_settings,
     worker_factory: (
-        Callable[[Settings, PostgresReviewRepository, TestingAgentService], TestingWorker] | None
+        Callable[[Settings, PostgresReviewRepository, TestingAgentService, ReviewCoordinator], TestingWorker] | None
     ) = None,
 ) -> None:
     settings = settings_factory()
@@ -175,13 +181,17 @@ async def run_worker(
     test_analyzer = OpenAITestAnalyzer(settings)
     testing_service = TestingAgentService(git_service, test_analyzer)
 
+    notifier = GitHubNotificationPublisher(settings)
+    coordinator = ReviewCoordinator(repository, notifier)
+
     if worker_factory:
-        worker = worker_factory(settings, repository, testing_service)
+        worker = worker_factory(settings, repository, testing_service, coordinator)
     else:
         worker = TestingWorker(
             settings=settings,
             repository=repository,
             testing_service=testing_service,
+            coordinator=coordinator,
         )
 
     loop = asyncio.get_running_loop()

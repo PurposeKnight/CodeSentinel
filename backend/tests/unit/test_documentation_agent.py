@@ -60,7 +60,8 @@ async def test_documentation_worker_message_processing() -> None:
         "findings": [],
     }
 
-    worker = DocumentationWorker(settings, mock_repo, mock_service)
+    mock_coordinator = AsyncMock()
+    worker = DocumentationWorker(settings, mock_repo, mock_service, mock_coordinator)
 
     # Mock incoming message
     message = MagicMock(spec=AbstractIncomingMessage)
@@ -85,3 +86,6 @@ async def test_documentation_worker_message_processing() -> None:
     saved_review = mock_repo.save_review.call_args[0][0]
     assert saved_review.documentation_score == 90
     assert saved_review.score == 85
+
+    # Verify coordinator finalization is called
+    mock_coordinator.check_and_finalize_review.assert_called_once_with("a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1")

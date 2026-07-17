@@ -58,7 +58,8 @@ async def test_testing_worker_message_processing() -> None:
         "findings": [],
     }
 
-    worker = TestingWorker(settings, mock_repo, mock_service)
+    mock_coordinator = AsyncMock()
+    worker = TestingWorker(settings, mock_repo, mock_service, mock_coordinator)
 
     # Mock incoming message
     message = MagicMock(spec=AbstractIncomingMessage)
@@ -81,3 +82,6 @@ async def test_testing_worker_message_processing() -> None:
     assert mock_repo.save_review.call_count == 1
     saved_review = mock_repo.save_review.call_args[0][0]
     assert saved_review.score == 85
+
+    # Verify coordinator finalization is called
+    mock_coordinator.check_and_finalize_review.assert_called_once_with("a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1")

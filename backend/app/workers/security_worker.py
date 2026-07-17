@@ -12,9 +12,11 @@ from app.domain.models import AgentTask, PullRequestReview
 from app.domain.ports import ReviewRepository
 from app.infrastructure.database import close_postgres_pool, create_postgres_pool, init_db
 from app.infrastructure.git_service import GitService
+from app.infrastructure.github_notifier import GitHubNotificationPublisher
 from app.infrastructure.openai_explainer import OpenAIVulnerabilityExplainer
 from app.infrastructure.postgres_repository import PostgresReviewRepository
 from app.infrastructure.rabbitmq import connect_with_retry, declare_all_topology
+from app.services.review_coordinator import ReviewCoordinator
 from app.services.security_agent_service import SecurityAgentService
 
 logger = get_logger(__name__)
@@ -26,10 +28,12 @@ class SecurityWorker:
         settings: Settings,
         repository: ReviewRepository,
         security_service: SecurityAgentService,
+        coordinator: ReviewCoordinator,
     ) -> None:
         self._settings = settings
         self._repository = repository
         self._security_service = security_service
+        self._coordinator = coordinator
         self._stop_event = asyncio.Event()
 
     async def run(self) -> None:
@@ -175,12 +179,14 @@ class SecurityWorker:
                         reason=f"Execution error: {str(exc)}",
                     )
                 )
+            finally:
+                await self._coordinator.check_and_finalize_review(review_id)
 
 
 async def run_worker(
     settings_factory: Callable[[], Settings] = get_settings,
     worker_factory: (
-        Callable[[Settings, PostgresReviewRepository, SecurityAgentService], SecurityWorker] | None
+        Callable[[Settings, PostgresReviewRepository, SecurityAgentService, ReviewCoordinator], SecurityWorker] | None
     ) = None,
 ) -> None:
     settings = settings_factory()
@@ -194,13 +200,17 @@ async def run_worker(
     explainer = OpenAIVulnerabilityExplainer(settings)
     security_service = SecurityAgentService(git_service, explainer)
 
+    notifier = GitHubNotificationPublisher(settings)
+    coordinator = ReviewCoordinator(repository, notifier)
+
     if worker_factory:
-        worker = worker_factory(settings, repository, security_service)
+        worker = worker_factory(settings, repository, security_service, coordinator)
     else:
         worker = SecurityWorker(
             settings=settings,
             repository=repository,
             security_service=security_service,
+            coordinator=coordinator,
         )
 
     loop = asyncio.get_running_loop()
