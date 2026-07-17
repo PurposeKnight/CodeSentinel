@@ -100,6 +100,16 @@ services:
     volumes:
       - ./backend/app:/app/app:ro
 
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    depends_on:
+      - api
 
   postgres:
     image: postgres:16-alpine

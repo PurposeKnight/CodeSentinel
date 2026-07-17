@@ -133,3 +133,33 @@ class PostgresReviewRepository(ReviewRepository):
                     )
                 )
             return tasks
+
+    async def list_reviews(self) -> list[PullRequestReview]:
+        sql = """
+            SELECT id, repository, pull_request_number, delivery_id, status,
+                   score, security_score, performance_score, architecture_score,
+                   documentation_score, created_at, updated_at
+            FROM pull_request_reviews
+            ORDER BY created_at DESC
+        """
+        async with self._pool.acquire() as connection:
+            rows = await connection.fetch(sql)
+            reviews = []
+            for row in rows:
+                reviews.append(
+                    PullRequestReview(
+                        id=str(row["id"]),
+                        repository=row["repository"],
+                        pull_request_number=row["pull_request_number"],
+                        delivery_id=row["delivery_id"],
+                        status=row["status"],
+                        score=row["score"],
+                        security_score=row["security_score"],
+                        performance_score=row["performance_score"],
+                        architecture_score=row["architecture_score"],
+                        documentation_score=row["documentation_score"],
+                        created_at=row["created_at"],
+                        updated_at=row["updated_at"],
+                    )
+                )
+            return reviews

@@ -17,6 +17,9 @@ class ReviewRepository(Protocol):
     async def get_tasks(self, review_id: str) -> list[AgentTask]:
         """Retrieve all tasks associated with a review."""
 
+    async def list_reviews(self) -> list[PullRequestReview]:
+        """Retrieve all pull request reviews, ordered by creation date."""
+
 
 class EventPublisher(Protocol):
     async def publish_github_webhook(self, event: GitHubWebhookEvent) -> None:
