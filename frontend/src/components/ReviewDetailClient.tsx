@@ -3,18 +3,45 @@
 import { useState } from "react";
 import Link from "next/link";
 
-interface AgentTask {
+export interface TaskReport {
+  summary?: {
+    total_vulnerabilities?: number;
+    critical?: number;
+    high?: number;
+    medium?: number;
+    low?: number;
+  };
+  architecture_score?: number;
+  performance_score?: number;
+  documentation_score?: number;
+  findings?: Array<{
+    scanner?: string;
+    vulnerability_id?: string;
+    severity?: string;
+    file?: string;
+    line?: number;
+    line_number?: number;
+    description?: string;
+    explanation?: string;
+    recommendation?: string;
+    code_fix?: string;
+    test_status?: string;
+    recommendations?: string[];
+  }>;
+}
+
+export interface AgentTask {
   id: string;
   review_id: string;
   agent: string;
   status: string;
   reason: string | null;
-  report: any | null;
+  report: TaskReport | null;
   created_at: string | null;
   updated_at: string | null;
 }
 
-interface PullRequestReview {
+export interface PullRequestReview {
   id: string;
   repository: string;
   pull_request_number: number;
@@ -181,7 +208,7 @@ export default function ReviewDetailClient({ review }: { review: PullRequestRevi
                   <p style={{ color: "var(--accent-success)", fontWeight: 500 }}>Clean run! No security findings detected.</p>
                 ) : (
                   <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
-                    {securityTask.report.findings.map((f: any, idx: number) => (
+                    {securityTask.report.findings.map((f, idx) => (
                       <div key={idx} style={{ padding: "20px", border: "1px solid var(--border-glow)", borderRadius: "12px", background: "rgba(255, 255, 255, 0.01)" }}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
                           <span style={{ fontWeight: 600, color: "var(--accent-primary)", fontSize: "0.95rem" }}>
@@ -244,7 +271,7 @@ export default function ReviewDetailClient({ review }: { review: PullRequestRevi
                   <p style={{ color: "var(--accent-success)", fontWeight: 500 }}>No issues found! Code quality meets clean architecture standards.</p>
                 ) : (
                   <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-                    {codeReviewTask.report.findings.map((f: any, idx: number) => (
+                    {codeReviewTask.report.findings.map((f, idx) => (
                       <div key={idx} style={{ padding: "16px", border: "1px solid var(--border-glow)", borderRadius: "10px", background: "rgba(255, 255, 255, 0.01)" }}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
                           <span style={{ fontWeight: 600, color: "var(--foreground)" }}>
@@ -276,7 +303,7 @@ export default function ReviewDetailClient({ review }: { review: PullRequestRevi
                   <p style={{ color: "var(--accent-success)", fontWeight: 500 }}>Your test suite provides adequate coverage.</p>
                 ) : (
                   <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-                    {testingTask.report.findings.map((f: any, idx: number) => (
+                    {testingTask.report.findings.map((f, idx) => (
                       <div key={idx} style={{ padding: "16px", border: "1px solid var(--border-glow)", borderRadius: "10px", background: "rgba(255, 255, 255, 0.01)" }}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
                           <span style={{ fontWeight: 600, color: "var(--foreground)" }}>{f.file}</span>
@@ -321,7 +348,7 @@ export default function ReviewDetailClient({ review }: { review: PullRequestRevi
                   <p style={{ color: "var(--accent-success)", fontWeight: 500 }}>All files and modules are thoroughly documented.</p>
                 ) : (
                   <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-                    {docTask.report.findings.map((f: any, idx: number) => (
+                    {docTask.report.findings.map((f, idx) => (
                       <div key={idx} style={{ padding: "16px", border: "1px solid var(--border-glow)", borderRadius: "10px", background: "rgba(255, 255, 255, 0.01)" }}>
                         <div style={{ fontWeight: 600, color: "var(--foreground)", marginBottom: "8px" }}>{f.file}</div>
                         <p style={{ fontSize: "0.95rem", marginBottom: "8px" }}><strong>Gaps:</strong> {f.explanation}</p>

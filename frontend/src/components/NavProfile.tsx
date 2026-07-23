@@ -48,6 +48,7 @@ export default function NavProfile({ user }: { user: UserProfile | null }) {
     <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
       <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
         {user.avatar_url ? (
+          // eslint-disable-next-line @next/next/no-img-element
           <img 
             src={user.avatar_url} 
             alt={user.username} 

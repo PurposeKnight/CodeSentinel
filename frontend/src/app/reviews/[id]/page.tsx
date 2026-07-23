@@ -1,35 +1,8 @@
 import { notFound, redirect } from "next/navigation";
 import { cookies } from "next/headers";
-import ReviewDetailClient from "@/components/ReviewDetailClient";
+import ReviewDetailClient, { PullRequestReview } from "@/components/ReviewDetailClient";
 
 const API_URL = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-
-interface AgentTask {
-  id: string;
-  review_id: string;
-  agent: string;
-  status: string;
-  reason: string | null;
-  report: any | null;
-  created_at: string | null;
-  updated_at: string | null;
-}
-
-interface PullRequestReview {
-  id: string;
-  repository: string;
-  pull_request_number: number;
-  delivery_id: string | null;
-  status: string;
-  score: number | null;
-  security_score: number | null;
-  performance_score: number | null;
-  architecture_score: number | null;
-  documentation_score: number | null;
-  created_at: string;
-  updated_at: string;
-  tasks: AgentTask[];
-}
 
 async function getReview(id: string, token: string): Promise<PullRequestReview | null> {
   try {
