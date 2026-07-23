@@ -34,6 +34,20 @@ class ReviewCoordinator:
         if not tasks:
             return
 
+        # Retrieve repository settings
+        repo_settings = await self._repository.get_repository_settings(review.repository)
+        min_security = 70
+        min_overall = 60
+        slack_webhook = None
+        enabled_agents = ["security-agent", "code-review-agent", "testing-agent", "documentation-agent", "deployment-agent"]
+        if isinstance(repo_settings, dict):
+            min_security = repo_settings.get("min_security_score", 70)
+            min_overall = repo_settings.get("min_overall_score", 60)
+            slack_webhook = repo_settings.get("slack_webhook_url")
+            enabled_agents = repo_settings.get("enabled_agents", enabled_agents)
+
+        deployment_enabled = "deployment-agent" in enabled_agents
+
         # Separate deployment task from analysis tasks
         analysis_tasks = [t for t in tasks if t.agent != "deployment-agent"]
         deployment_task = next((t for t in tasks if t.agent == "deployment-agent"), None)
@@ -48,68 +62,71 @@ class ReviewCoordinator:
             )
             return
 
-        # If analysis tasks are finished, but deployment task hasn't been created yet
-        if not deployment_task:
-            logger.info("review_coordinator_evaluating_deployment_gates", review_id=review_id)
+        # If deployment-agent is enabled
+        if deployment_enabled:
+            # If analysis tasks are finished, but deployment task hasn't been created yet
+            if not deployment_task:
+                logger.info("review_coordinator_evaluating_deployment_gates", review_id=review_id)
 
-            overall_score = review.calculate_overall_score()
-            security_score = review.security_score
+                overall_score = review.calculate_overall_score()
+                security_score = review.security_score
 
-            passed = True
-            reason = "All deployment gates passed successfully."
+                passed = True
+                reason = "All deployment gates passed successfully."
 
-            if security_score is not None and security_score < 70:
-                passed = False
-                reason = f"Deployment gated: security score ({security_score}) is below the threshold of 70."
-            elif overall_score is not None and overall_score < 60:
-                passed = False
-                reason = f"Deployment gated: overall quality score ({overall_score}) is below the threshold of 60."
+                if security_score is not None and security_score < min_security:
+                    passed = False
+                    reason = f"Deployment gated: security score ({security_score}) is below the threshold of {min_security}."
+                elif overall_score is not None and overall_score < min_overall:
+                    passed = False
+                    reason = f"Deployment gated: overall quality score ({overall_score}) is below the threshold of {min_overall}."
 
-            task_id = str(uuid.uuid4())
-            if not passed:
-                logger.warning("review_coordinator_deployment_gated", review_id=review_id, reason=reason)
-                new_task = AgentTask(
-                    id=task_id,
-                    review_id=review_id,
-                    agent="deployment-agent",
-                    status="failed",
-                    reason=reason,
-                    report={"status": "gated", "reason": reason},
-                )
-                await self._repository.save_task(new_task)
-                # Refresh tasks list to include the failed deployment task
-                tasks = await self._repository.get_tasks(review_id)
-                deployment_task = new_task
-            else:
-                logger.info("review_coordinator_deployment_passed_gates", review_id=review_id)
-                new_task = AgentTask(
-                    id=task_id,
-                    review_id=review_id,
-                    agent="deployment-agent",
-                    status="pending",
-                    reason="Gates passed. Deployment in progress.",
-                )
-                await self._repository.save_task(new_task)
-
-                if self._event_publisher:
-                    await self._event_publisher.publish_agent_task(
+                task_id = str(uuid.uuid4())
+                if not passed:
+                    logger.warning("review_coordinator_deployment_gated", review_id=review_id, reason=reason)
+                    new_task = AgentTask(
+                        id=task_id,
                         review_id=review_id,
-                        task_id=task_id,
                         agent="deployment-agent",
-                        repository=review.repository,
-                        pull_request_number=review.pull_request_number,
+                        status="failed",
+                        reason=reason,
+                        report={"status": "gated", "reason": reason},
                     )
+                    await self._repository.save_task(new_task)
+                    tasks = await self._repository.get_tasks(review_id)
+                    deployment_task = new_task
                 else:
-                    logger.warning(
-                        "review_coordinator_event_publisher_missing_cannot_trigger_deployment",
+                    logger.info("review_coordinator_deployment_passed_gates", review_id=review_id)
+                    new_task = AgentTask(
+                        id=task_id,
                         review_id=review_id,
+                        agent="deployment-agent",
+                        status="pending",
+                        reason="Gates passed. Deployment in progress.",
                     )
-                return
+                    await self._repository.save_task(new_task)
 
-        # If deployment task exists but is not finished yet
-        if deployment_task and deployment_task.status not in {"completed", "failed"}:
-            logger.info("review_coordinator_waiting_for_deployment", review_id=review_id)
-            return
+                    if self._event_publisher:
+                        await self._event_publisher.publish_agent_task(
+                            review_id=review_id,
+                            task_id=task_id,
+                            agent="deployment-agent",
+                            repository=review.repository,
+                            pull_request_number=review.pull_request_number,
+                        )
+                    else:
+                        logger.warning(
+                            "review_coordinator_event_publisher_missing_cannot_trigger_deployment",
+                            review_id=review_id,
+                        )
+                    return
+
+            # If deployment task exists but is not finished yet
+            if deployment_task and deployment_task.status not in {"completed", "failed"}:
+                logger.info("review_coordinator_waiting_for_deployment", review_id=review_id)
+                return
+        else:
+            logger.info("review_coordinator_deployment_disabled_skipping_gate", review_id=review_id)
 
         logger.info("review_coordinator_all_tasks_finished", review_id=review_id)
 
@@ -126,7 +143,11 @@ class ReviewCoordinator:
                             all_findings.append(finding_copy)
 
         # If deployment task failed, the review fails
-        deployment_success = deployment_task and deployment_task.status == "completed"
+        if deployment_enabled:
+            deployment_success = deployment_task and deployment_task.status == "completed"
+        else:
+            deployment_success = any(t.status == "completed" for t in analysis_tasks)
+
         new_status = "completed" if deployment_success else "failed"
 
         # Update final state of review
@@ -170,6 +191,7 @@ class ReviewCoordinator:
                 status=new_status,
                 findings_count=len(all_findings),
                 review_id=review.id,
+                webhook_url=slack_webhook,
             )
 
         logger.info("review_coordinator_finalized_and_notified", review_id=review_id)

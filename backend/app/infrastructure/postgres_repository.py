@@ -269,3 +269,53 @@ class PostgresReviewRepository(ReviewRepository):
         """
         async with self._pool.acquire() as connection:
             await connection.execute(sql, session_token)
+
+    async def get_repository_settings(self, repository: str) -> dict[str, Any] | None:
+        sql = """
+            SELECT repository, slack_webhook_url, alert_email, min_security_score, min_overall_score, enabled_agents
+            FROM repository_settings
+            WHERE repository = $1
+        """
+        async with self._pool.acquire() as connection:
+            row = await connection.fetchrow(sql, repository)
+            if not row:
+                return None
+            enabled_agents_val = row["enabled_agents"]
+            enabled_agents_data = []
+            if enabled_agents_val is not None:
+                if isinstance(enabled_agents_val, str):
+                    enabled_agents_data = json.loads(enabled_agents_val)
+                elif isinstance(enabled_agents_val, list):
+                    enabled_agents_data = enabled_agents_val
+            return {
+                "repository": row["repository"],
+                "slack_webhook_url": row["slack_webhook_url"],
+                "alert_email": row["alert_email"],
+                "min_security_score": row["min_security_score"],
+                "min_overall_score": row["min_overall_score"],
+                "enabled_agents": enabled_agents_data,
+            }
+
+    async def save_repository_settings(self, repository: str, settings: dict[str, Any]) -> None:
+        sql = """
+            INSERT INTO repository_settings (repository, slack_webhook_url, alert_email, min_security_score, min_overall_score, enabled_agents, updated_at)
+            VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)
+            ON CONFLICT (repository) DO UPDATE
+            SET slack_webhook_url = EXCLUDED.slack_webhook_url,
+                alert_email = EXCLUDED.alert_email,
+                min_security_score = EXCLUDED.min_security_score,
+                min_overall_score = EXCLUDED.min_overall_score,
+                enabled_agents = EXCLUDED.enabled_agents,
+                updated_at = CURRENT_TIMESTAMP
+        """
+        enabled_agents_json = json.dumps(settings.get("enabled_agents", []))
+        async with self._pool.acquire() as connection:
+            await connection.execute(
+                sql,
+                repository,
+                settings.get("slack_webhook_url"),
+                settings.get("alert_email"),
+                settings.get("min_security_score", 70),
+                settings.get("min_overall_score", 60),
+                enabled_agents_json,
+            )

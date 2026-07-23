@@ -17,6 +17,67 @@ export default function RepositoriesListClient({ initialRepos }: { initialRepos:
   const [repos, setRepos] = useState<Repository[]>(initialRepos);
   const [loadingRepoId, setLoadingRepoId] = useState<number | null>(null);
 
+  // Settings state variables
+  const [selectedRepoSettings, setSelectedRepoSettings] = useState<Repository | null>(null);
+  const [settingsLoading, setSettingsLoading] = useState(false);
+  const [slackWebhook, setSlackWebhook] = useState("");
+  const [alertEmail, setAlertEmail] = useState("");
+  const [minSecurity, setMinSecurity] = useState(70);
+  const [minOverall, setMinOverall] = useState(60);
+  const [enabledAgents, setEnabledAgents] = useState<string[]>([]);
+
+  const handleOpenSettings = async (repo: Repository) => {
+    setSelectedRepoSettings(repo);
+    setSettingsLoading(true);
+    const [owner, name] = repo.full_name.split("/");
+    try {
+      const res = await fetch(`${API_URL}/api/v1/repositories/${owner}/${name}/settings`, {
+        credentials: "include",
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setSlackWebhook(data.slack_webhook_url || "");
+        setAlertEmail(data.alert_email || "");
+        setMinSecurity(data.min_security_score ?? 70);
+        setMinOverall(data.min_overall_score ?? 60);
+        setEnabledAgents(data.enabled_agents || []);
+      }
+    } catch (e) {
+      console.error("Error loading settings:", e);
+    } finally {
+      setSettingsLoading(false);
+    }
+  };
+
+  const handleSaveSettings = async () => {
+    if (!selectedRepoSettings) return;
+    const [owner, name] = selectedRepoSettings.full_name.split("/");
+    try {
+      const res = await fetch(`${API_URL}/api/v1/repositories/${owner}/${name}/settings`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          slack_webhook_url: slackWebhook || null,
+          alert_email: alertEmail || null,
+          min_security_score: Number(minSecurity),
+          min_overall_score: Number(minOverall),
+          enabled_agents: enabledAgents,
+        }),
+        credentials: "include",
+      });
+      if (res.ok) {
+        setSelectedRepoSettings(null);
+      } else {
+        alert("Failed to save settings");
+      }
+    } catch (e) {
+      console.error("Error saving settings:", e);
+      alert("Error saving settings");
+    }
+  };
+
   const handleToggleLink = async (repo: Repository) => {
     setLoadingRepoId(repo.id);
     const action = repo.is_linked ? "unlink" : "link";
@@ -95,7 +156,38 @@ export default function RepositoriesListClient({ initialRepos }: { initialRepos:
                 </p>
               </div>
 
-              <div>
+              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                {repo.is_linked && (
+                  <button
+                    onClick={() => handleOpenSettings(repo)}
+                    style={{
+                      width: "100%",
+                      background: "rgba(255, 255, 255, 0.02)",
+                      border: "1px solid rgba(255, 255, 255, 0.08)",
+                      color: "var(--foreground-muted)",
+                      padding: "10px 20px",
+                      borderRadius: "8px",
+                      fontWeight: 600,
+                      fontSize: "0.875rem",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: "8px",
+                      transition: "all 0.2s ease"
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = "rgba(255, 255, 255, 0.05)";
+                      e.currentTarget.style.color = "var(--foreground)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = "rgba(255, 255, 255, 0.02)";
+                      e.currentTarget.style.color = "var(--foreground-muted)";
+                    }}
+                  >
+                    ⚙️ Configure Settings
+                  </button>
+                )}
                 <button
                   disabled={loadingRepoId === repo.id}
                   onClick={() => handleToggleLink(repo)}
@@ -145,6 +237,196 @@ export default function RepositoriesListClient({ initialRepos }: { initialRepos:
           ))
         )}
       </section>
+
+      {/* Settings Modal overlay */}
+      {selectedRepoSettings && (
+        <div style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: "rgba(0, 0, 0, 0.7)",
+          backdropFilter: "blur(8px)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 1000,
+          padding: "20px"
+        }}>
+          <div className="glass-card" style={{
+            width: "100%",
+            maxWidth: "540px",
+            padding: "36px",
+            background: "rgba(20, 20, 20, 0.95)",
+            border: "1px solid var(--border-glow)",
+            maxHeight: "90vh",
+            overflowY: "auto"
+          }}>
+            <h2 style={{ fontSize: "1.5rem", marginBottom: "8px", fontWeight: 700 }}>
+              Repository Settings
+            </h2>
+            <p style={{ color: "var(--foreground-muted)", fontSize: "0.9rem", marginBottom: "24px" }}>
+              Configure gating policies and integrations for <strong>{selectedRepoSettings.full_name}</strong>.
+            </p>
+
+            {settingsLoading ? (
+              <p style={{ color: "var(--foreground-muted)" }}>Loading configurations...</p>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+                <div>
+                  <label style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, color: "var(--foreground-muted)", marginBottom: "8px" }}>
+                    Slack Alert Webhook URL
+                  </label>
+                  <input
+                    type="text"
+                    value={slackWebhook}
+                    onChange={(e) => setSlackWebhook(e.target.value)}
+                    placeholder="https://hooks.slack.com/services/..."
+                    style={{
+                      width: "100%",
+                      background: "rgba(255, 255, 255, 0.02)",
+                      border: "1px solid rgba(255, 255, 255, 0.1)",
+                      borderRadius: "6px",
+                      padding: "10px 14px",
+                      color: "var(--foreground)",
+                      fontSize: "0.9rem"
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, color: "var(--foreground-muted)", marginBottom: "8px" }}>
+                    Alert Notification Email
+                  </label>
+                  <input
+                    type="email"
+                    value={alertEmail}
+                    onChange={(e) => setAlertEmail(e.target.value)}
+                    placeholder="devops@company.com"
+                    style={{
+                      width: "100%",
+                      background: "rgba(255, 255, 255, 0.02)",
+                      border: "1px solid rgba(255, 255, 255, 0.1)",
+                      borderRadius: "6px",
+                      padding: "10px 14px",
+                      color: "var(--foreground)",
+                      fontSize: "0.9rem"
+                    }}
+                  />
+                </div>
+
+                <div style={{ display: "flex", gap: "20px" }}>
+                  <div style={{ flex: 1 }}>
+                    <label style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, color: "var(--foreground-muted)", marginBottom: "8px" }}>
+                      Min Security Score
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={minSecurity}
+                      onChange={(e) => setMinSecurity(Number(e.target.value))}
+                      style={{
+                        width: "100%",
+                        background: "rgba(255, 255, 255, 0.02)",
+                        border: "1px solid rgba(255, 255, 255, 0.1)",
+                        borderRadius: "6px",
+                        padding: "10px 14px",
+                        color: "var(--foreground)",
+                        fontSize: "0.9rem"
+                      }}
+                    />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <label style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, color: "var(--foreground-muted)", marginBottom: "8px" }}>
+                      Min Overall Score
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={minOverall}
+                      onChange={(e) => setMinOverall(Number(e.target.value))}
+                      style={{
+                        width: "100%",
+                        background: "rgba(255, 255, 255, 0.02)",
+                        border: "1px solid rgba(255, 255, 255, 0.1)",
+                        borderRadius: "6px",
+                        padding: "10px 14px",
+                        color: "var(--foreground)",
+                        fontSize: "0.9rem"
+                      }}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, color: "var(--foreground-muted)", marginBottom: "12px" }}>
+                    Enabled Agent Workflow
+                  </label>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                    {[
+                      { key: "security-agent", label: "Security Scanning (Semgrep, Trivy, Bandit, pip-audit)" },
+                      { key: "code-review-agent", label: "Code Quality & Design Reviews" },
+                      { key: "testing-agent", label: "Test Coverage & Missing Tests Analysis" },
+                      { key: "documentation-agent", label: "Documentation & Docstring Analysis" },
+                      { key: "deployment-agent", label: "Release/Deployment Gating" }
+                    ].map((agent) => (
+                      <label key={agent.key} style={{ display: "flex", alignItems: "center", gap: "10px", fontSize: "0.9rem", cursor: "pointer", color: "var(--foreground)" }}>
+                        <input
+                          type="checkbox"
+                          checked={enabledAgents.includes(agent.key)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setEnabledAgents([...enabledAgents, agent.key]);
+                            } else {
+                              setEnabledAgents(enabledAgents.filter((a) => a !== agent.key));
+                            }
+                          }}
+                          style={{ accentColor: "var(--accent-primary)" }}
+                        />
+                        <span>{agent.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", gap: "12px", marginTop: "12px", justifyContent: "flex-end" }}>
+                  <button
+                    onClick={() => setSelectedRepoSettings(null)}
+                    style={{
+                      background: "rgba(255,255,255,0.04)",
+                      border: "none",
+                      color: "var(--foreground)",
+                      padding: "10px 20px",
+                      borderRadius: "6px",
+                      fontWeight: 600,
+                      cursor: "pointer"
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSaveSettings}
+                    style={{
+                      background: "var(--accent-primary)",
+                      border: "none",
+                      color: "white",
+                      padding: "10px 20px",
+                      borderRadius: "6px",
+                      fontWeight: 600,
+                      cursor: "pointer"
+                    }}
+                  >
+                    Save Configuration
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </main>
   );
 }

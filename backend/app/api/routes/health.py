@@ -43,3 +43,22 @@ async def readiness(
         status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
         content=response.model_dump(mode="json"),
     )
+
+
+@router.get("/health/detailed", status_code=status.HTTP_200_OK)
+async def detailed_health(
+    request: Request,
+    health_service: Annotated[HealthService, Depends(get_health_service)],
+):
+    settings = request.app.state.settings
+    detailed_data = await health_service.check_detailed_dependencies()
+    is_ok = all(
+        item.get("status") == "ok"
+        for item in detailed_data.get("dependencies", {}).values()
+    )
+    return {
+        "status": "ok" if is_ok else "degraded",
+        "service": settings.app_name,
+        "version": settings.app_version,
+        "details": detailed_data,
+    }

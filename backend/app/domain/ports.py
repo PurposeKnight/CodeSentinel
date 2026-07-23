@@ -38,6 +38,12 @@ class ReviewRepository(Protocol):
     async def delete_session(self, session_token: str) -> None:
         """Delete/revoke a user session."""
 
+    async def get_repository_settings(self, repository: str) -> dict[str, Any] | None:
+        """Retrieve settings for a repository."""
+
+    async def save_repository_settings(self, repository: str, settings: dict[str, Any]) -> None:
+        """Save settings for a repository."""
+
 
 class SlackPublisher(Protocol):
     async def publish_review_alert(
@@ -48,6 +54,7 @@ class SlackPublisher(Protocol):
         status: str,
         findings_count: int,
         review_id: str,
+        webhook_url: str | None = None,
     ) -> None:
         """Publish a summary alert of the review to Slack channels."""
 

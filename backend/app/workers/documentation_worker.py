@@ -46,6 +46,16 @@ class DocumentationWorker:
         configure_logging(self._settings)
         logger.info("documentation_worker_starting")
 
+        # Start heartbeat loop
+        from app.infrastructure.heartbeat import publish_heartbeat
+        heartbeat_task = asyncio.create_task(
+            publish_heartbeat(
+                redis_url=self._settings.redis_url,
+                worker_name="documentation-worker",
+                stop_event=self._stop_event,
+            )
+        )
+
         connection = await connect_with_retry(self._settings)
         channel = await connection.channel()
         # 1 task at a time to prevent resource starvation during concurrency
@@ -64,6 +74,7 @@ class DocumentationWorker:
             await self._stop_event.wait()
         finally:
             logger.info("documentation_worker_stopping")
+            await heartbeat_task
             await channel.close()
             await connection.close()
 

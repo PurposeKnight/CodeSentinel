@@ -18,9 +18,11 @@ class SlackNotificationPublisher(SlackPublisher):
         status: str,
         findings_count: int,
         review_id: str,
+        webhook_url: str | None = None,
     ) -> None:
-        webhook_secret = self._settings.slack_webhook_url
-        webhook_url = webhook_secret.get_secret_value() if webhook_secret else None
+        if not webhook_url:
+            webhook_secret = self._settings.slack_webhook_url
+            webhook_url = webhook_secret.get_secret_value() if webhook_secret else None
 
         # Build clean Slack block layout
         score_text = f"{score}%" if score is not None else "N/A"

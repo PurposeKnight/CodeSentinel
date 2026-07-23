@@ -2,7 +2,7 @@ from app.domain.events import GitHubWebhookEvent, PlannedAgentTask, PullRequestR
 
 
 class PlannerService:
-    def plan_github_webhook(self, event: GitHubWebhookEvent) -> PullRequestReviewPlan | None:
+    def plan_github_webhook(self, event: GitHubWebhookEvent, enabled_agents: list[str] | None = None) -> PullRequestReviewPlan | None:
         if event.event != "pull_request":
             return None
 
@@ -12,29 +12,36 @@ class PlannerService:
         if not event.repository_full_name:
             return None
 
+        all_tasks = (
+            PlannedAgentTask(
+                agent="security-agent",
+                reason="Run Semgrep, Trivy, Gitleaks, Bandit, and dependency audit.",
+            ),
+            PlannedAgentTask(
+                agent="code-review-agent",
+                reason="Review maintainability, architecture, readability, and duplication.",
+            ),
+            PlannedAgentTask(
+                agent="testing-agent",
+                reason="Detect missing tests and suggest unit and integration coverage.",
+            ),
+            PlannedAgentTask(
+                agent="documentation-agent",
+                reason="Assess docs, docstrings, API documentation, and changelog impact.",
+            ),
+        )
+
+        if enabled_agents is not None:
+            tasks = tuple(t for t in all_tasks if t.agent in enabled_agents)
+        else:
+            tasks = all_tasks
+
         return PullRequestReviewPlan(
             delivery_id=event.delivery_id,
             repository_full_name=event.repository_full_name,
             pull_request_number=self._pull_request_number(event),
             action=event.action,
-            tasks=(
-                PlannedAgentTask(
-                    agent="security-agent",
-                    reason="Run Semgrep, Trivy, Gitleaks, Bandit, and dependency audit.",
-                ),
-                PlannedAgentTask(
-                    agent="code-review-agent",
-                    reason="Review maintainability, architecture, readability, and duplication.",
-                ),
-                PlannedAgentTask(
-                    agent="testing-agent",
-                    reason="Detect missing tests and suggest unit and integration coverage.",
-                ),
-                PlannedAgentTask(
-                    agent="documentation-agent",
-                    reason="Assess docs, docstrings, API documentation, and changelog impact.",
-                ),
-            ),
+            tasks=tasks,
         )
 
     @staticmethod

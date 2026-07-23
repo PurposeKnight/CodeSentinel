@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Cookie, status
 from app.core.config import get_settings, Settings
 from app.api.dependencies.services import get_review_repository
 from app.domain.ports import ReviewRepository
-from app.schemas.repositories import RepositoryResponse, LinkRepositoryRequest
+from app.schemas.repositories import RepositoryResponse, LinkRepositoryRequest, RepositorySettingsResponse, RepositorySettingsUpdate
 
 router = APIRouter()
 
@@ -224,3 +224,51 @@ async def unlink_repository(
     repo_name = request.repository
     r_client.srem("codesentinel:linked_repos", repo_name)
     return {"success": True, "message": f"Successfully unlinked repository {repo_name}"}
+
+
+@router.get(
+    "/repositories/{owner}/{repo}/settings",
+    response_model=RepositorySettingsResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def get_repo_settings(
+    owner: str,
+    repo: str,
+    user: Annotated[Any, Depends(get_current_user_from_session)],
+    repository: Annotated[ReviewRepository, Depends(get_review_repository)],
+) -> RepositorySettingsResponse:
+    repo_full_name = f"{owner}/{repo}"
+    settings = await repository.get_repository_settings(repo_full_name)
+    if not settings:
+        return RepositorySettingsResponse(
+            repository=repo_full_name,
+            slack_webhook_url=None,
+            alert_email=None,
+            min_security_score=70,
+            min_overall_score=60,
+            enabled_agents=["security-agent", "code-review-agent", "testing-agent", "documentation-agent", "deployment-agent"],
+        )
+    return RepositorySettingsResponse(**settings)
+
+
+@router.post(
+    "/repositories/{owner}/{repo}/settings",
+    status_code=status.HTTP_200_OK,
+)
+async def update_repo_settings(
+    owner: str,
+    repo: str,
+    update_data: RepositorySettingsUpdate,
+    user: Annotated[Any, Depends(get_current_user_from_session)],
+    repository: Annotated[ReviewRepository, Depends(get_review_repository)],
+):
+    repo_full_name = f"{owner}/{repo}"
+    settings_dict = {
+        "slack_webhook_url": update_data.slack_webhook_url,
+        "alert_email": update_data.alert_email,
+        "min_security_score": update_data.min_security_score,
+        "min_overall_score": update_data.min_overall_score,
+        "enabled_agents": update_data.enabled_agents,
+    }
+    await repository.save_repository_settings(repo_full_name, settings_dict)
+    return {"success": True, "message": f"Successfully updated settings for {repo_full_name}"}

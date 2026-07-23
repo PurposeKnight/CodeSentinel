@@ -46,3 +46,13 @@ CREATE TABLE IF NOT EXISTS user_sessions (
 );
 
 CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON user_sessions(user_id);
+
+CREATE TABLE IF NOT EXISTS repository_settings (
+    repository TEXT PRIMARY KEY,
+    slack_webhook_url TEXT,
+    alert_email TEXT,
+    min_security_score INT DEFAULT 70,
+    min_overall_score INT DEFAULT 60,
+    enabled_agents JSONB DEFAULT '["security-agent", "code-review-agent", "testing-agent", "documentation-agent", "deployment-agent"]'::jsonb,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);

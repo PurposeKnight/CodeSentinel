@@ -44,6 +44,16 @@ class PlannerWorker:
         configure_logging(self._settings)
         logger.info("planner_worker_starting")
 
+        # Start heartbeat loop
+        from app.infrastructure.heartbeat import publish_heartbeat
+        heartbeat_task = asyncio.create_task(
+            publish_heartbeat(
+                redis_url=self._settings.redis_url,
+                worker_name="planner-worker",
+                stop_event=self._stop_event,
+            )
+        )
+
         connection = await connect_with_retry(self._settings)
         channel = await connection.channel()
         await channel.set_qos(prefetch_count=self._settings.planner_worker_prefetch_count)
@@ -65,6 +75,7 @@ class PlannerWorker:
             await self._stop_event.wait()
         finally:
             logger.info("planner_worker_stopping")
+            await heartbeat_task
             await channel.close()
             await connection.close()
 
@@ -74,7 +85,15 @@ class PlannerWorker:
     async def _handle_message(self, message: AbstractIncomingMessage) -> None:
         async with message.process(requeue=False):
             event = self._decode_message(message)
-            plan = self._planner_service.plan_github_webhook(event)
+
+            repository_name = event.repository_full_name
+            enabled_agents = None
+            if repository_name:
+                settings_dict = await self._repository.get_repository_settings(repository_name)
+                if settings_dict:
+                    enabled_agents = settings_dict.get("enabled_agents")
+
+            plan = self._planner_service.plan_github_webhook(event, enabled_agents)
 
             if plan is None:
                 logger.info(

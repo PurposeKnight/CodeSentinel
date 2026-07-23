@@ -1,4 +1,5 @@
 from time import perf_counter
+from typing import Any
 
 import asyncpg
 from redis.asyncio import Redis
@@ -23,6 +24,49 @@ class HealthService:
         redis = await self._check_redis()
         rabbitmq = await self._check_rabbitmq()
         return {"postgres": postgres, "redis": redis, "rabbitmq": rabbitmq}
+
+    async def check_detailed_dependencies(self) -> dict[str, Any]:
+        postgres = await self._check_postgres()
+        redis = await self._check_redis()
+        rabbitmq = await self._check_rabbitmq()
+
+        workers = [
+            "planner-worker",
+            "security-worker",
+            "code-review-worker",
+            "testing-worker",
+            "documentation-worker",
+            "deployment-worker",
+        ]
+
+        worker_statuses = {}
+        for w in workers:
+            try:
+                val = await self._redis_client.get(f"codesentinel:heartbeat:{w}")
+                worker_statuses[w] = "online" if val == "online" else "offline"
+            except Exception:
+                worker_statuses[w] = "offline"
+
+        return {
+            "dependencies": {
+                "postgres": {
+                    "status": postgres.status,
+                    "latency_ms": postgres.latency_ms,
+                    "detail": postgres.detail,
+                },
+                "redis": {
+                    "status": redis.status,
+                    "latency_ms": redis.latency_ms,
+                    "detail": redis.detail,
+                },
+                "rabbitmq": {
+                    "status": rabbitmq.status,
+                    "latency_ms": rabbitmq.latency_ms,
+                    "detail": rabbitmq.detail,
+                },
+            },
+            "workers": worker_statuses,
+        }
 
     async def _check_postgres(self) -> DependencyHealth:
         start = perf_counter()
