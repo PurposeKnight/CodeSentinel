@@ -17,6 +17,7 @@ AGENT_ROUTING_KEYS = {
     "code-review-agent": "tasks.code_review",
     "testing-agent": "tasks.testing",
     "documentation-agent": "tasks.documentation",
+    "deployment-agent": "tasks.deployment",
 }
 
 
@@ -172,6 +173,7 @@ async def declare_all_topology(
         ("tasks.code_review", "codesentinel.tasks.code_review"),
         ("tasks.testing", "codesentinel.tasks.testing"),
         ("tasks.documentation", "codesentinel.tasks.documentation"),
+        ("tasks.deployment", "codesentinel.tasks.deployment"),
     ]
     for routing_key, queue_name in agents:
         q = await channel.declare_queue(queue_name, durable=True)

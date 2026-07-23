@@ -58,13 +58,14 @@ export interface PullRequestReview {
 }
 
 export default function ReviewDetailClient({ review }: { review: PullRequestReview }) {
-  const [activeTab, setActiveTab] = useState<"security" | "code-review" | "testing" | "documentation">("security");
+  const [activeTab, setActiveTab] = useState<"security" | "code-review" | "testing" | "documentation" | "deployment">("security");
 
   // Get task reports
   const securityTask = review.tasks.find((t) => t.agent === "security-agent");
   const codeReviewTask = review.tasks.find((t) => t.agent === "code-review-agent");
   const testingTask = review.tasks.find((t) => t.agent === "testing-agent");
   const docTask = review.tasks.find((t) => t.agent === "documentation-agent");
+  const deployTask = review.tasks.find((t) => t.agent === "deployment-agent");
 
   // Helper for score color classes
   const getScoreClass = (score: number | null) => {
@@ -180,6 +181,12 @@ export default function ReviewDetailClient({ review }: { review: PullRequestRevi
           className={`tab-btn ${activeTab === "documentation" ? "tab-btn-active" : ""}`}
         >
           Documentation
+        </button>
+        <button 
+          onClick={() => setActiveTab("deployment")}
+          className={`tab-btn ${activeTab === "deployment" ? "tab-btn-active" : ""}`}
+        >
+          Deployment Gate
         </button>
       </section>
 
@@ -357,6 +364,70 @@ export default function ReviewDetailClient({ review }: { review: PullRequestRevi
                     ))}
                   </div>
                 )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* DEPLOYMENT TAB */}
+        {activeTab === "deployment" && (
+          <div>
+            <h2 style={{ fontSize: "1.25rem", marginBottom: "16px" }}>Deployment Gate</h2>
+            {!deployTask ? (
+              <p style={{ color: "var(--foreground-muted)" }}>No deployment task has been initialized yet.</p>
+            ) : deployTask.status === "pending" || deployTask.status === "running" ? (
+              <div>
+                <p style={{ color: "var(--foreground-muted)", marginBottom: "16px" }}>
+                  Task Status: <strong style={{ textTransform: "capitalize" }}>{deployTask.status}</strong>
+                </p>
+                <div style={{ display: "flex", alignItems: "center", gap: "12px", padding: "16px", background: "rgba(255, 255, 255, 0.02)", borderRadius: "8px" }}>
+                  <span className="pulsing-indicator" style={{ background: "var(--accent-warning)" }}></span>
+                  <span>{deployTask.reason || "Deployment and health verification in progress..."}</span>
+                </div>
+              </div>
+            ) : deployTask.status === "failed" ? (
+              <div>
+                <p style={{ color: "var(--accent-error)", fontWeight: 600, marginBottom: "12px" }}>
+                  Deployment Gate Blocked
+                </p>
+                <p style={{ color: "var(--foreground)", marginBottom: "20px" }}>
+                  {deployTask.reason || "Gate criteria not met."}
+                </p>
+                {deployTask.report?.rollback && (
+                  <div style={{ padding: "16px", background: "rgba(239, 68, 68, 0.05)", border: "1px solid rgba(239, 68, 68, 0.2)", borderRadius: "8px" }}>
+                    <strong style={{ display: "block", color: "var(--accent-error)", marginBottom: "4px" }}>Automatic Rollback Status:</strong>
+                    <p style={{ fontSize: "0.9rem", color: "var(--foreground-muted)" }}>{deployTask.report.rollback}</p>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div>
+                <div style={{ display: "flex", gap: "24px", marginBottom: "24px", flexWrap: "wrap", padding: "16px", background: "rgba(16, 185, 129, 0.05)", border: "1px solid rgba(16, 185, 129, 0.2)", borderRadius: "8px" }}>
+                  <div style={{ color: "var(--accent-success)" }}>Status: <strong>Released & Healthy</strong></div>
+                  <div>Environment: <strong>{deployTask.report?.environment || "staging"}</strong></div>
+                  <div>ID: <strong style={{ fontFamily: "monospace" }}>{deployTask.report?.deployment_id || "N/A"}</strong></div>
+                </div>
+
+                <div style={{ marginBottom: "20px" }}>
+                  <h4 style={{ fontSize: "0.9rem", color: "var(--foreground-muted)", marginBottom: "6px" }}>Staging URL</h4>
+                  {deployTask.report?.url ? (
+                    <a 
+                      href={deployTask.report.url} 
+                      target="_blank" 
+                      rel="noreferrer"
+                      style={{ color: "var(--accent-primary)", fontWeight: 600, textDecoration: "none" }}
+                    >
+                      {deployTask.report.url} &rarr;
+                    </a>
+                  ) : (
+                    <span style={{ color: "var(--foreground-muted)" }}>N/A</span>
+                  )}
+                </div>
+
+                <div style={{ padding: "14px", background: "rgba(0,0,0,0.2)", borderRadius: "8px", borderLeft: "3px solid var(--accent-success)" }}>
+                  <h4 style={{ fontSize: "0.85rem", textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--foreground-muted)", marginBottom: "4px" }}>Verification Details</h4>
+                  <p style={{ fontSize: "0.95rem" }}>{deployTask.report?.details || "All checks complete."}</p>
+                </div>
               </div>
             )}
           </div>

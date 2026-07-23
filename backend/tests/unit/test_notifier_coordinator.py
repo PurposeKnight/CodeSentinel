@@ -68,7 +68,7 @@ async def test_review_coordinator_all_tasks_completed() -> None:
     )
     mock_repo.get_review.return_value = review
 
-    # Both completed
+    # Both completed + deployment agent completed
     tasks = [
         AgentTask(
             id="t1",
@@ -83,6 +83,13 @@ async def test_review_coordinator_all_tasks_completed() -> None:
             agent="code-review-agent",
             status="completed",
             report={"findings": [{"file": "app.py", "line": 12, "explanation": "Code issue"}]},
+        ),
+        AgentTask(
+            id="t3",
+            review_id=review.id,
+            agent="deployment-agent",
+            status="completed",
+            report={"environment": "staging", "deployment_id": "dep-1"},
         ),
     ]
     mock_repo.get_tasks.return_value = tasks

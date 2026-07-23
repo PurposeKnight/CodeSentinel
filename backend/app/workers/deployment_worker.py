@@ -11,10 +11,8 @@ from app.core.logging import configure_logging, get_logger
 from app.domain.models import AgentTask, PullRequestReview
 from app.domain.ports import ReviewRepository
 from app.infrastructure.database import close_postgres_pool, create_postgres_pool, init_db
-from app.infrastructure.git_service import GitService
 from app.infrastructure.github_notifier import GitHubNotificationPublisher
 from app.infrastructure.slack_notifier import SlackNotificationPublisher
-from app.infrastructure.openai_doc_analyzer import OpenAIDocAnalyzer
 from app.infrastructure.postgres_repository import PostgresReviewRepository
 from app.infrastructure.rabbitmq import (
     close_event_publisher,
@@ -22,48 +20,47 @@ from app.infrastructure.rabbitmq import (
     create_event_publisher,
     declare_all_topology,
 )
-from app.services.documentation_agent_service import DocumentationAgentService
 from app.services.review_coordinator import ReviewCoordinator
+from app.services.deployment_agent_service import DeploymentAgentService
 
 logger = get_logger(__name__)
 
 
-class DocumentationWorker:
+class DeploymentWorker:
     def __init__(
         self,
         settings: Settings,
         repository: ReviewRepository,
-        documentation_service: DocumentationAgentService,
+        deployment_service: DeploymentAgentService,
         coordinator: ReviewCoordinator,
     ) -> None:
         self._settings = settings
         self._repository = repository
-        self._documentation_service = documentation_service
+        self._deployment_service = deployment_service
         self._coordinator = coordinator
         self._stop_event = asyncio.Event()
 
     async def run(self) -> None:
         configure_logging(self._settings)
-        logger.info("documentation_worker_starting")
+        logger.info("deployment_worker_starting")
 
         connection = await connect_with_retry(self._settings)
         channel = await connection.channel()
-        # 1 task at a time to prevent resource starvation during concurrency
         await channel.set_qos(prefetch_count=1)
 
         await declare_all_topology(channel, self._settings)
         queue = await channel.declare_queue(
-            "codesentinel.tasks.documentation",
+            "codesentinel.tasks.deployment",
             durable=True,
         )
 
         await queue.consume(self._handle_message)
-        logger.info("documentation_worker_consuming", queue="codesentinel.tasks.documentation")
+        logger.info("deployment_worker_consuming", queue="codesentinel.tasks.deployment")
 
         try:
             await self._stop_event.wait()
         finally:
-            logger.info("documentation_worker_stopping")
+            logger.info("deployment_worker_stopping")
             await channel.close()
             await connection.close()
 
@@ -75,7 +72,7 @@ class DocumentationWorker:
             try:
                 payload = json.loads(message.body.decode("utf-8"))
             except Exception as exc:
-                logger.error("documentation_worker_decode_payload_failed", error=str(exc))
+                logger.error("deployment_worker_decode_payload_failed", error=str(exc))
                 return
 
             review_id = payload.get("review_id")
@@ -84,11 +81,11 @@ class DocumentationWorker:
             pr_number = payload.get("pull_request_number", 0)
 
             if not review_id or not task_id or not repository_name:
-                logger.error("documentation_worker_invalid_payload", payload=payload)
+                logger.error("deployment_worker_invalid_payload", payload=payload)
                 return
 
             logger.info(
-                "documentation_worker_processing_task",
+                "deployment_worker_processing_task",
                 task_id=task_id,
                 review_id=review_id,
                 repository=repository_name,
@@ -100,84 +97,100 @@ class DocumentationWorker:
                 AgentTask(
                     id=task_id,
                     review_id=review_id,
-                    agent="documentation-agent",
+                    agent="deployment-agent",
                     status="running",
-                    reason="Documentation analysis in progress",
+                    reason="Deployment and liveness probes in progress.",
                 )
             )
 
-            # 2. Run documentation analysis
             try:
-                report = await self._documentation_service.run_documentation_analysis(
+                # 2. Trigger deployment
+                deploy_info = await self._deployment_service.trigger_deployment(
                     repository=repository_name,
                     pr_number=pr_number,
                 )
 
-                # Extract documentation score
-                doc_score = report.get("documentation_score", 100)
+                # Simulate deployment delay (e.g. 3 seconds)
+                await asyncio.sleep(3.0)
 
-                # 3. Save task as completed with report details
-                await self._repository.save_task(
-                    AgentTask(
-                        id=task_id,
-                        review_id=review_id,
-                        agent="documentation-agent",
-                        status="completed",
-                        report=report,
-                    )
-                )
+                # 3. Verify health
+                healthy, health_reason = await self._deployment_service.verify_health()
 
-                # 4. Update the parent review with scores
-                review = await self._repository.get_review(review_id)
-                if review:
-                    temp_review = PullRequestReview(
-                        id=review.id,
-                        repository=review.repository,
-                        pull_request_number=review.pull_request_number,
-                        delivery_id=review.delivery_id,
-                        status=review.status,
-                        score=review.score,
-                        security_score=review.security_score,
-                        performance_score=review.performance_score,
-                        architecture_score=review.architecture_score,
-                        documentation_score=doc_score,
+                if healthy:
+                    report = {
+                        "status": "success",
+                        "environment": deploy_info.get("environment"),
+                        "deployment_id": deploy_info.get("deployment_id"),
+                        "url": deploy_info.get("url"),
+                        "details": health_reason,
+                    }
+
+                    # Save task as completed
+                    await self._repository.save_task(
+                        AgentTask(
+                            id=task_id,
+                            review_id=review_id,
+                            agent="deployment-agent",
+                            status="completed",
+                            reason="Deployment succeeded and verified healthy.",
+                            report=report,
+                        )
                     )
-                    overall_score = temp_review.calculate_overall_score()
-                    updated_review = PullRequestReview(
-                        id=review.id,
-                        repository=review.repository,
-                        pull_request_number=review.pull_request_number,
-                        delivery_id=review.delivery_id,
-                        status=review.status,
-                        score=overall_score,
-                        security_score=review.security_score,
-                        performance_score=review.performance_score,
-                        architecture_score=review.architecture_score,
-                        documentation_score=doc_score,
+                else:
+                    # Rollback since it's unhealthy
+                    rollback_reason = await self._deployment_service.rollback(
+                        repository=repository_name,
+                        pr_number=pr_number,
                     )
-                    await self._repository.save_review(updated_review)
+
+                    report = {
+                        "status": "failed",
+                        "details": f"Deployment failed: {health_reason}",
+                        "rollback": rollback_reason,
+                    }
+
+                    await self._repository.save_task(
+                        AgentTask(
+                            id=task_id,
+                            review_id=review_id,
+                            agent="deployment-agent",
+                            status="failed",
+                            reason=f"Health check failed: {health_reason}. Deployment rolled back.",
+                            report=report,
+                        )
+                    )
 
                 logger.info(
-                    "documentation_worker_task_completed",
+                    "deployment_worker_task_completed",
                     task_id=task_id,
                     review_id=review_id,
-                    documentation_score=doc_score,
                 )
             except Exception as exc:
                 logger.error(
-                    "documentation_worker_task_failed",
+                    "deployment_worker_task_failed",
                     task_id=task_id,
                     review_id=review_id,
                     error=str(exc),
                     exc_info=True,
                 )
+
+                # Handle failure by doing a rollback attempt
+                try:
+                    rollback_reason = await self._deployment_service.rollback(
+                        repository=repository_name,
+                        pr_number=pr_number,
+                    )
+                except Exception as roll_exc:
+                    rollback_reason = f"Rollback failed: {str(roll_exc)}"
+
                 await self._repository.save_task(
                     AgentTask(
                         id=task_id,
                         review_id=review_id,
-                        agent="documentation-agent",
+                        agent="deployment-agent",
                         status="failed",
-                        reason=f"Execution error: {str(exc)}",
+                        reason=f"Deployment execution error: {str(exc)}",
+                        report={"status": "error", "details": str(exc), "rollback": rollback_reason},
                     )
                 )
             finally:
@@ -187,7 +200,8 @@ class DocumentationWorker:
 async def run_worker(
     settings_factory: Callable[[], Settings] = get_settings,
     worker_factory: (
-        Callable[[Settings, PostgresReviewRepository, DocumentationAgentService, ReviewCoordinator], DocumentationWorker] | None
+        Callable[[Settings, PostgresReviewRepository, DeploymentAgentService, ReviewCoordinator], DeploymentWorker]
+        | None
     ) = None,
 ) -> None:
     settings = settings_factory()
@@ -198,22 +212,19 @@ async def run_worker(
     repository = PostgresReviewRepository(postgres_pool)
 
     event_publisher = await create_event_publisher(settings)
-
-    git_service = GitService()
-    doc_analyzer = OpenAIDocAnalyzer(settings)
-    documentation_service = DocumentationAgentService(git_service, doc_analyzer)
+    deployment_service = DeploymentAgentService()
 
     notifier = GitHubNotificationPublisher(settings)
     slack_notifier = SlackNotificationPublisher(settings)
     coordinator = ReviewCoordinator(repository, notifier, slack_notifier, event_publisher)
 
     if worker_factory:
-        worker = worker_factory(settings, repository, documentation_service, coordinator)
+        worker = worker_factory(settings, repository, deployment_service, coordinator)
     else:
-        worker = DocumentationWorker(
+        worker = DeploymentWorker(
             settings=settings,
             repository=repository,
-            documentation_service=documentation_service,
+            deployment_service=deployment_service,
             coordinator=coordinator,
         )
 

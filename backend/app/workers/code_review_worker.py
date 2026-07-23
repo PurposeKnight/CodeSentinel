@@ -16,7 +16,12 @@ from app.infrastructure.github_notifier import GitHubNotificationPublisher
 from app.infrastructure.slack_notifier import SlackNotificationPublisher
 from app.infrastructure.openai_code_reviewer import OpenAICodeReviewer
 from app.infrastructure.postgres_repository import PostgresReviewRepository
-from app.infrastructure.rabbitmq import connect_with_retry, declare_all_topology
+from app.infrastructure.rabbitmq import (
+    close_event_publisher,
+    connect_with_retry,
+    create_event_publisher,
+    declare_all_topology,
+)
 from app.services.code_review_agent_service import CodeReviewAgentService
 from app.services.review_coordinator import ReviewCoordinator
 
@@ -194,13 +199,15 @@ async def run_worker(
     await init_db(postgres_pool)
     repository = PostgresReviewRepository(postgres_pool)
 
+    event_publisher = await create_event_publisher(settings)
+
     git_service = GitService()
     reviewer = OpenAICodeReviewer(settings)
     code_review_service = CodeReviewAgentService(git_service, reviewer)
 
     notifier = GitHubNotificationPublisher(settings)
     slack_notifier = SlackNotificationPublisher(settings)
-    coordinator = ReviewCoordinator(repository, notifier, slack_notifier)
+    coordinator = ReviewCoordinator(repository, notifier, slack_notifier, event_publisher)
 
     if worker_factory:
         worker = worker_factory(settings, repository, code_review_service, coordinator)
@@ -220,6 +227,7 @@ async def run_worker(
     try:
         await worker.run()
     finally:
+        await close_event_publisher(event_publisher)
         await close_postgres_pool(postgres_pool)
 
 

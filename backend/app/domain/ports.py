@@ -126,3 +126,20 @@ class NotificationPublisher(Protocol):
         """Publish a pull request review with a summary and line-level comments/findings."""
 
 
+class DeploymentService(Protocol):
+    async def evaluate_gates(self, review_summary: dict[str, Any]) -> tuple[bool, str]:
+        """Check whether the review scores satisfy deployment gate thresholds.
+
+        Returns (passed, reason).
+        """
+
+    async def trigger_deployment(self, repository: str, pr_number: int) -> dict[str, Any]:
+        """Simulate triggering the CI/CD pipeline and return details."""
+
+    async def verify_health(self) -> tuple[bool, str]:
+        """Verify the health of the deployed application (liveness check)."""
+
+    async def rollback(self, repository: str, pr_number: int) -> str:
+        """Simulate rolling back the deployment."""
+
+
