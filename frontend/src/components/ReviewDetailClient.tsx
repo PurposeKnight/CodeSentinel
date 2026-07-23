@@ -14,6 +14,11 @@ export interface TaskReport {
   architecture_score?: number;
   performance_score?: number;
   documentation_score?: number;
+  rollback?: string;
+  environment?: string;
+  deployment_id?: string;
+  url?: string;
+  details?: string;
   findings?: Array<{
     scanner?: string;
     vulnerability_id?: string;
@@ -55,6 +60,36 @@ export interface PullRequestReview {
   created_at: string;
   updated_at: string;
   tasks: AgentTask[];
+}
+
+function renderValue(val: any): React.ReactNode {
+  if (val === null || val === undefined) return null;
+  if (typeof val === "object") {
+    if (val.before !== undefined || val.after !== undefined) {
+      return (
+        <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginTop: "8px" }}>
+          {val.before !== undefined && (
+            <div>
+              <div style={{ color: "var(--accent-error)", fontSize: "0.75rem", fontWeight: 700, marginBottom: "4px", textTransform: "uppercase" }}>Original (Before)</div>
+              <pre className="code-pre" style={{ borderLeft: "3px solid var(--accent-error)", padding: "10px", background: "rgba(239, 68, 68, 0.02)", margin: 0 }}>
+                <code className="code-style" style={{ whiteSpace: "pre-wrap" }}>{typeof val.before === "string" ? val.before : JSON.stringify(val.before, null, 2)}</code>
+              </pre>
+            </div>
+          )}
+          {val.after !== undefined && (
+            <div>
+              <div style={{ color: "var(--accent-success)", fontSize: "0.75rem", fontWeight: 700, marginBottom: "4px", textTransform: "uppercase" }}>Proposed Fix (After)</div>
+              <pre className="code-pre" style={{ borderLeft: "3px solid var(--accent-success)", padding: "10px", background: "rgba(16, 185, 129, 0.02)", margin: 0 }}>
+                <code className="code-style" style={{ whiteSpace: "pre-wrap" }}>{typeof val.after === "string" ? val.after : JSON.stringify(val.after, null, 2)}</code>
+              </pre>
+            </div>
+          )}
+        </div>
+      );
+    }
+    return <pre style={{ whiteSpace: "pre-wrap", wordBreak: "break-all", fontSize: "0.9rem", color: "var(--foreground)", margin: 0 }}>{JSON.stringify(val, null, 2)}</pre>;
+  }
+  return String(val);
 }
 
 export default function ReviewDetailClient({ review }: { review: PullRequestReview }) {
@@ -231,23 +266,27 @@ export default function ReviewDetailClient({ review }: { review: PullRequestRevi
                         </div>
 
                         {f.description && (
-                          <p style={{ fontSize: "0.95rem", marginBottom: "12px" }}>{f.description}</p>
+                          <div style={{ fontSize: "0.95rem", marginBottom: "12px" }}>{renderValue(f.description)}</div>
                         )}
 
                         <div style={{ margin: "16px 0", padding: "14px", background: "rgba(0,0,0,0.2)", borderRadius: "8px", borderLeft: "3px solid var(--accent-primary)" }}>
                           <h4 style={{ fontSize: "0.85rem", textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--foreground-muted)", marginBottom: "4px" }}>Explanation</h4>
-                          <p style={{ fontSize: "0.95rem" }}>{f.explanation}</p>
+                          <div style={{ fontSize: "0.95rem" }}>{renderValue(f.explanation)}</div>
                         </div>
 
                         <div style={{ margin: "16px 0", padding: "14px", background: "rgba(0,0,0,0.2)", borderRadius: "8px", borderLeft: "3px solid var(--accent-success)" }}>
                           <h4 style={{ fontSize: "0.85rem", textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--foreground-muted)", marginBottom: "4px" }}>Recommendation</h4>
-                          <p style={{ fontSize: "0.95rem" }}>{f.recommendation}</p>
+                          <div style={{ fontSize: "0.95rem" }}>{renderValue(f.recommendation)}</div>
                         </div>
 
                         {f.code_fix && (
                           <div className="code-block-wrapper">
                             <div className="code-block-header">Recommended Fix</div>
-                            <pre className="code-pre"><code className="code-style">{f.code_fix}</code></pre>
+                            {typeof f.code_fix === "object" ? (
+                              renderValue(f.code_fix)
+                            ) : (
+                              <pre className="code-pre"><code className="code-style">{String(f.code_fix)}</code></pre>
+                            )}
                           </div>
                         )}
                       </div>
@@ -285,8 +324,12 @@ export default function ReviewDetailClient({ review }: { review: PullRequestRevi
                             {f.file} {f.line ? `(Line ${f.line})` : ""}
                           </span>
                         </div>
-                        <p style={{ fontSize: "0.95rem", marginBottom: "8px", color: "#e5e7eb" }}><strong>Finding:</strong> {f.explanation}</p>
-                        <p style={{ fontSize: "0.95rem", color: "var(--foreground-muted)" }}><strong>Recommendation:</strong> {f.recommendation}</p>
+                        <div style={{ fontSize: "0.95rem", marginBottom: "8px", color: "#e5e7eb" }}>
+                          <strong>Finding:</strong> {renderValue(f.explanation)}
+                        </div>
+                        <div style={{ fontSize: "0.95rem", color: "var(--foreground-muted)" }}>
+                          <strong>Recommendation:</strong> {renderValue(f.recommendation)}
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -322,8 +365,8 @@ export default function ReviewDetailClient({ review }: { review: PullRequestRevi
                           <div style={{ marginTop: "12px" }}>
                             <strong style={{ fontSize: "0.9rem", color: "var(--foreground-muted)" }}>Recommended Test Cases:</strong>
                             <ul style={{ listStyleType: "disc", paddingLeft: "20px", marginTop: "4px", fontSize: "0.95rem" }}>
-                              {f.recommendations.map((rec: string, rIdx: number) => (
-                                <li key={rIdx} style={{ marginBottom: "4px" }}>{rec}</li>
+                              {f.recommendations.map((rec: any, rIdx: number) => (
+                                <li key={rIdx} style={{ marginBottom: "4px" }}>{renderValue(rec)}</li>
                               ))}
                             </ul>
                           </div>
@@ -358,8 +401,12 @@ export default function ReviewDetailClient({ review }: { review: PullRequestRevi
                     {docTask.report.findings.map((f, idx) => (
                       <div key={idx} style={{ padding: "16px", border: "1px solid var(--border-glow)", borderRadius: "10px", background: "rgba(255, 255, 255, 0.01)" }}>
                         <div style={{ fontWeight: 600, color: "var(--foreground)", marginBottom: "8px" }}>{f.file}</div>
-                        <p style={{ fontSize: "0.95rem", marginBottom: "8px" }}><strong>Gaps:</strong> {f.explanation}</p>
-                        <p style={{ fontSize: "0.95rem", color: "var(--foreground-muted)" }}><strong>Recommendation:</strong> {f.recommendation}</p>
+                        <div style={{ fontSize: "0.95rem", marginBottom: "8px" }}>
+                          <strong>Gaps:</strong> {renderValue(f.explanation)}
+                        </div>
+                        <div style={{ fontSize: "0.95rem", color: "var(--foreground-muted)" }}>
+                          <strong>Recommendation:</strong> {renderValue(f.recommendation)}
+                        </div>
                       </div>
                     ))}
                   </div>
