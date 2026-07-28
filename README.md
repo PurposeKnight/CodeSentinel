@@ -4,7 +4,21 @@ CodeSentinel is a production-grade, microservices-driven code analysis and quali
 
 ---
 
+## 🎯 What is CodeSentinel?
+Traditional static analysis security tools (SAST) produce raw scanner logs with high false-positive rates and minimal context, making it hard for developers to resolve findings. CodeSentinel bridges this gap by acting as an **Autonomous AI Code Reviewer and CI/CD Gatekeeper**:
+
+1. **Ingests Code Events:** Listens to GitHub Pull Request webhooks securely.
+2. **Runs Scanners Locally:** Clones the code and runs 5 security scan engines (Bandit, Gitleaks, Semgrep, Trivy, pip-audit).
+3. **Enriches with AI:** Translates raw scanner findings into clear explanations, concrete mitigation steps, and copy-pasteable code fixes using Groq/OpenAI LLM models.
+4. **Performs Multi-Agent Audits:** Scans code for architecture, test coverage, and documentation.
+5. **Gates Deployments:** Automatically blocks pull requests that do not meet minimum security or quality score thresholds.
+6. **Displays Real-time Diagnostics:** Features a Next.js control panel showing review history, detailed reports, and microservices heartbeat monitoring.
+
+---
+
 ## 🏗️ Architectural Flow
+
+Here is how data flows through the platform when a developer opens a Pull Request:
 
 ```mermaid
 sequenceDiagram
@@ -39,6 +53,32 @@ sequenceDiagram
 
 ---
 
+## 🧩 Key Architecture Concepts
+
+### 1. Event-Driven Microservices (RabbitMQ)
+Scanning code repositories and executing LLM queries are slow, resource-heavy operations. The core API gateway does not run scans directly. Instead, verified webhook requests are immediately published to RabbitMQ. Decoupled worker daemons consume tasks asynchronously, keeping the public REST API fast and responsive.
+
+### 2. Multi-Agent Scan Workers
+Once a review is planned, the workflow breaks down into four isolated, parallel scanning pipelines:
+* **Security Agent:** Runs static analysis tools on the branch.
+  * **Bandit:** Finds common security issues in Python code.
+  * **Gitleaks:** Scans the codebase history for hardcoded secrets, api keys, and certificates.
+  * **Semgrep:** Scans code patterns for logical and architectural vulnerabilities.
+  * **Trivy:** Checks configuration files (Dockerfiles, Kubernetes YAMLs) for misconfigurations.
+  * **pip-audit:** Audits Python dependencies against the Python Packaging Advisory Database for known vulnerabilities.
+* **Code Review Agent:** Connects to LLMs to audit code duplication, structural maintainability, readability, and adherence to clean architecture.
+* **Testing Agent:** Scans the repository test directories, maps test coverage, and writes recommendations for missing test cases.
+* **Documentation Agent:** Reviews inline docstrings, API boundaries, and readme completeness.
+
+### 3. Deployment Gating & Policies
+The `deployment-worker` acts as the gatekeeper. It retrieves the repository configurations (configured via the Frontend admin dashboard) for target minimum scores:
+* If the repository requires a minimum security score of `70` and the Security Agent reports `60`, the gating worker marks the deployment task as `failed`, updates the review status, blocks the pipeline, and alerts the engineering team on Slack.
+
+### 4. Heartbeat Diagnostics (Redis)
+To ensure the microservices cluster is healthy, every active worker background task posts an `online` status heartbeat key into Redis with a 15-second TTL (Time-To-Live) every 5 seconds. The API gateway retrieves these heartbeats and measures database/queue connection latencies, displaying a real-time cluster health panel.
+
+---
+
 ## 🚀 Key Modules & Directory Mapping
 
 ### Backend Layer
@@ -46,6 +86,7 @@ sequenceDiagram
 * [backend/app/services/review_coordinator.py](file:///c:/Users/Pranay%20Shah/Documents/Security%20Reviewer/backend/app/services/review_coordinator.py): Review orchestrator assessing deployment gating thresholds and dispatching final review statuses.
 * [backend/app/workers/planner_worker.py](file:///c:/Users/Pranay%20Shah/Documents/Security%20Reviewer/backend/app/workers/planner_worker.py): Ingestion queue listener that maps webhook activities into review blueprints.
 * [backend/app/workers/deployment_worker.py](file:///c:/Users/Pranay%20Shah/Documents/Security%20Reviewer/backend/app/workers/deployment_worker.py): Gating executor validating if a review's security and quality metrics satisfy gating parameters.
+* [backend/app/infrastructure/scanners/](file:///c:/Users/Pranay%20Shah/Documents/Security%20Reviewer/backend/app/infrastructure/scanners/): Contains individual scanner connectors executing local shell processes.
 
 ### Frontend Layer
 * [frontend/src/app/page.tsx](file:///c:/Users/Pranay%20Shah/Documents/Security%20Reviewer/frontend/src/app/page.tsx): Main landing page displaying active scans, average review metrics, and quality scoring cards.
