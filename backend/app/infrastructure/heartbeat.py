@@ -1,5 +1,7 @@
 import asyncio
+
 from redis.asyncio import Redis
+
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -19,7 +21,7 @@ async def publish_heartbeat(redis_url: str, worker_name: str, stop_event: asynci
 
             try:
                 await asyncio.wait_for(stop_event.wait(), timeout=5.0)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 pass
     except Exception as exc:
         logger.error("worker_heartbeat_fatal_error", worker=worker_name, error=str(exc))

@@ -2,7 +2,9 @@ from app.domain.events import GitHubWebhookEvent, PlannedAgentTask, PullRequestR
 
 
 class PlannerService:
-    def plan_github_webhook(self, event: GitHubWebhookEvent, enabled_agents: list[str] | None = None) -> PullRequestReviewPlan | None:
+    def plan_github_webhook(
+        self, event: GitHubWebhookEvent, enabled_agents: list[str] | None = None
+    ) -> PullRequestReviewPlan | None:
         if event.event != "pull_request":
             return None
 

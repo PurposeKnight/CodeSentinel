@@ -1,5 +1,7 @@
-import httpx
 from typing import Any
+
+import httpx
+
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -20,7 +22,10 @@ class DeploymentAgentService:
         # Gate 2: Overall Quality Score >= 60
         overall_score = review_summary.get("score")
         if overall_score is not None and overall_score < 60:
-            return False, f"Overall quality score ({overall_score}) is below the minimum threshold of 60."
+            return (
+                False,
+                f"Overall quality score ({overall_score}) is below the minimum threshold of 60.",
+            )
 
         return True, "All deployment gates passed successfully."
 

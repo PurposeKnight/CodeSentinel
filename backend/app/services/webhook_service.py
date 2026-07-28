@@ -47,9 +47,7 @@ class GitHubWebhookService:
             raise WebhookVerificationError("Invalid JSON payload.") from exc
 
         repository = payload.get("repository") if isinstance(payload, dict) else None
-        repository_full_name = (
-            repository.get("full_name") if isinstance(repository, dict) else None
-        )
+        repository_full_name = repository.get("full_name") if isinstance(repository, dict) else None
 
         return GitHubWebhookEvent(
             event=event_type or "unknown",

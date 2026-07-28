@@ -180,7 +180,6 @@ async def declare_all_topology(
         await q.bind(exchange, routing_key=routing_key)
 
 
-
 async def connect_with_retry(settings: Settings) -> AbstractRobustConnection:
     last_error: Exception | None = None
     for attempt in range(1, settings.rabbitmq_connect_retries + 1):

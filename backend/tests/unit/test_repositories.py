@@ -24,7 +24,9 @@ def client(mock_repository: AsyncMock) -> TestClient:
 
 
 @patch("redis.Redis")
-def test_list_repositories_mock_flow(mock_redis_class: MagicMock, client: TestClient, mock_repository: AsyncMock) -> None:
+def test_list_repositories_mock_flow(
+    mock_redis_class: MagicMock, client: TestClient, mock_repository: AsyncMock
+) -> None:
     # Setup mock user and session
     session_token = "valid-session-token"
     mock_user = User(
@@ -33,7 +35,7 @@ def test_list_repositories_mock_flow(mock_redis_class: MagicMock, client: TestCl
         username="mock-user",
         email="mock@example.com",
         avatar_url="http://avatar",
-        github_token="mock-access-token", # triggers mock repository listing
+        github_token="mock-access-token",  # triggers mock repository listing
     )
     mock_session = UserSession(
         session_token=session_token,
@@ -62,7 +64,9 @@ def test_list_repositories_mock_flow(mock_redis_class: MagicMock, client: TestCl
 
 
 @patch("redis.Redis")
-def test_link_repository_mock_flow(mock_redis_class: MagicMock, client: TestClient, mock_repository: AsyncMock) -> None:
+def test_link_repository_mock_flow(
+    mock_redis_class: MagicMock, client: TestClient, mock_repository: AsyncMock
+) -> None:
     session_token = "valid-session-token"
     mock_user = User(
         id="user-123",
@@ -92,7 +96,9 @@ def test_link_repository_mock_flow(mock_redis_class: MagicMock, client: TestClie
 
 
 @patch("redis.Redis")
-def test_unlink_repository_mock_flow(mock_redis_class: MagicMock, client: TestClient, mock_repository: AsyncMock) -> None:
+def test_unlink_repository_mock_flow(
+    mock_redis_class: MagicMock, client: TestClient, mock_repository: AsyncMock
+) -> None:
     session_token = "valid-session-token"
     mock_user = User(
         id="user-123",
@@ -123,11 +129,9 @@ def test_unlink_repository_mock_flow(mock_redis_class: MagicMock, client: TestCl
 
 @pytest.mark.anyio
 async def test_slack_notifier_mock_mode() -> None:
-    settings = Settings(
-        slack_webhook_url="mock-slack-url"
-    )
+    settings = Settings(slack_webhook_url="mock-slack-url")
     publisher = SlackNotificationPublisher(settings)
-    
+
     # Should not raise exception, but log mock operation
     await publisher.publish_review_alert(
         repository="pallets/flask",

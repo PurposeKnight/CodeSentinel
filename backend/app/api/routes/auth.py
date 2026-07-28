@@ -1,16 +1,16 @@
 import secrets
-from datetime import datetime, timezone, timedelta
-from typing import Annotated
 import uuid
+from datetime import UTC, datetime, timedelta
+from typing import Annotated
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Response, Cookie, status
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, status
 from fastapi.responses import RedirectResponse
 
-from app.core.config import get_settings, Settings
 from app.api.dependencies.services import get_review_repository
-from app.domain.ports import ReviewRepository
+from app.core.config import Settings, get_settings
 from app.domain.models import User, UserSession
+from app.domain.ports import ReviewRepository
 from app.schemas.auth import UserResponse
 
 router = APIRouter()
@@ -37,7 +37,11 @@ async def callback(
     settings: Annotated[Settings, Depends(get_settings)],
     repository: Annotated[ReviewRepository, Depends(get_review_repository)],
 ):
-    if not settings.github_client_id or settings.github_client_id == "mock-client-id" or code == "mock-code":
+    if (
+        not settings.github_client_id
+        or settings.github_client_id == "mock-client-id"
+        or code == "mock-code"
+    ):
         # Mock/development flow
         github_id = 999999
         username = "mock-user"
@@ -51,7 +55,9 @@ async def callback(
                 "https://github.com/login/oauth/access_token",
                 json={
                     "client_id": settings.github_client_id,
-                    "client_secret": settings.github_client_secret.get_secret_value() if settings.github_client_secret else "",
+                    "client_secret": settings.github_client_secret.get_secret_value()
+                    if settings.github_client_secret
+                    else "",
                     "code": code,
                     "redirect_uri": settings.github_redirect_uri,
                 },
@@ -116,7 +122,7 @@ async def callback(
 
     # Generate session token and save session
     session_token = secrets.token_hex(32)
-    expires_at = datetime.now(timezone.utc) + timedelta(days=7)
+    expires_at = datetime.now(UTC) + timedelta(days=7)
     session = UserSession(
         session_token=session_token,
         user_id=user.id,
@@ -157,9 +163,9 @@ async def me(
 
     expires_at = session.expires_at
     if expires_at.tzinfo is None:
-        expires_at = expires_at.replace(tzinfo=timezone.utc)
+        expires_at = expires_at.replace(tzinfo=UTC)
 
-    if datetime.now(timezone.utc) > expires_at:
+    if datetime.now(UTC) > expires_at:
         await repository.delete_session(session_token)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

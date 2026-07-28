@@ -8,11 +8,10 @@ from aio_pika.abc import AbstractIncomingMessage
 
 from app.core.config import Settings, get_settings
 from app.core.logging import configure_logging, get_logger
-from app.domain.models import AgentTask, PullRequestReview
+from app.domain.models import AgentTask
 from app.domain.ports import ReviewRepository
 from app.infrastructure.database import close_postgres_pool, create_postgres_pool, init_db
 from app.infrastructure.github_notifier import GitHubNotificationPublisher
-from app.infrastructure.slack_notifier import SlackNotificationPublisher
 from app.infrastructure.postgres_repository import PostgresReviewRepository
 from app.infrastructure.rabbitmq import (
     close_event_publisher,
@@ -20,8 +19,9 @@ from app.infrastructure.rabbitmq import (
     create_event_publisher,
     declare_all_topology,
 )
-from app.services.review_coordinator import ReviewCoordinator
+from app.infrastructure.slack_notifier import SlackNotificationPublisher
 from app.services.deployment_agent_service import DeploymentAgentService
+from app.services.review_coordinator import ReviewCoordinator
 
 logger = get_logger(__name__)
 
@@ -46,6 +46,7 @@ class DeploymentWorker:
 
         # Start heartbeat loop
         from app.infrastructure.heartbeat import publish_heartbeat
+
         heartbeat_task = asyncio.create_task(
             publish_heartbeat(
                 redis_url=self._settings.redis_url,
@@ -201,7 +202,11 @@ class DeploymentWorker:
                         agent="deployment-agent",
                         status="failed",
                         reason=f"Deployment execution error: {str(exc)}",
-                        report={"status": "error", "details": str(exc), "rollback": rollback_reason},
+                        report={
+                            "status": "error",
+                            "details": str(exc),
+                            "rollback": rollback_reason,
+                        },
                     )
                 )
             finally:
@@ -211,7 +216,10 @@ class DeploymentWorker:
 async def run_worker(
     settings_factory: Callable[[], Settings] = get_settings,
     worker_factory: (
-        Callable[[Settings, PostgresReviewRepository, DeploymentAgentService, ReviewCoordinator], DeploymentWorker]
+        Callable[
+            [Settings, PostgresReviewRepository, DeploymentAgentService, ReviewCoordinator],
+            DeploymentWorker,
+        ]
         | None
     ) = None,
 ) -> None:

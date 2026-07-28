@@ -1,4 +1,4 @@
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock
 
 import pytest
@@ -52,7 +52,7 @@ def test_auth_me_authenticated(client: TestClient, mock_repository: AsyncMock) -
     mock_session = UserSession(
         session_token=session_token,
         user_id="user-123",
-        expires_at=datetime.now(timezone.utc) + timedelta(days=1),
+        expires_at=datetime.now(UTC) + timedelta(days=1),
     )
     mock_user = User(
         id="user-123",
@@ -82,7 +82,7 @@ def test_auth_me_expired_session(client: TestClient, mock_repository: AsyncMock)
     mock_session = UserSession(
         session_token=session_token,
         user_id="user-123",
-        expires_at=datetime.now(timezone.utc) - timedelta(hours=1),
+        expires_at=datetime.now(UTC) - timedelta(hours=1),
     )
     mock_repository.get_session.return_value = mock_session
 

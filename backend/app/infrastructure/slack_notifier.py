@@ -1,4 +1,5 @@
 import httpx
+
 from app.core.config import Settings
 from app.core.logging import get_logger
 from app.domain.ports import SlackPublisher
@@ -26,10 +27,10 @@ class SlackNotificationPublisher(SlackPublisher):
 
         # Build clean Slack block layout
         score_text = f"{score}%" if score is not None else "N/A"
-        
+
         # Color coding status indicators
         status_emoji = "✅" if status == "completed" else "⚠️" if status == "running" else "❌"
-        
+
         payload = {
             "text": f"CodeSentinel audit completed for {repository} PR #{pr_number}",
             "blocks": [
@@ -37,9 +38,9 @@ class SlackNotificationPublisher(SlackPublisher):
                     "type": "header",
                     "text": {
                         "type": "plain_text",
-                        "text": f"🔍 CodeSentinel Audit Alert",
-                        "emoji": True
-                    }
+                        "text": "🔍 CodeSentinel Audit Alert",
+                        "emoji": True,
+                    },
                 },
                 {
                     "type": "section",
@@ -50,31 +51,28 @@ class SlackNotificationPublisher(SlackPublisher):
                             f"*Pull Request:* #{pr_number}\n"
                             f"*Status:* {status_emoji} {status.upper()}\n"
                             f"*Overall Quality Index:* *{score_text}*"
-                        )
-                    }
+                        ),
+                    },
                 },
                 {
                     "type": "section",
                     "text": {
                         "type": "mrkdwn",
-                        "text": f"*Findings:* {findings_count} issue(s) identified during audit."
-                    }
+                        "text": f"*Findings:* {findings_count} issue(s) identified during audit.",
+                    },
                 },
                 {
                     "type": "actions",
                     "elements": [
                         {
                             "type": "button",
-                            "text": {
-                                "type": "plain_text",
-                                "text": "View Dashboard Report"
-                            },
+                            "text": {"type": "plain_text", "text": "View Dashboard Report"},
                             "url": f"http://localhost:3000/reviews/{review_id}",
-                            "style": "primary"
+                            "style": "primary",
                         }
-                    ]
-                }
-            ]
+                    ],
+                },
+            ],
         }
 
         if not webhook_url or webhook_url == "mock-slack-url":
@@ -98,6 +96,8 @@ class SlackNotificationPublisher(SlackPublisher):
                         response=res.text,
                     )
                 else:
-                    logger.info("slack_notification_published", repository=repository, pr_number=pr_number)
+                    logger.info(
+                        "slack_notification_published", repository=repository, pr_number=pr_number
+                    )
         except Exception as e:
             logger.error("slack_notification_error", error=str(e))

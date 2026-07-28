@@ -1,12 +1,17 @@
 from typing import Annotated, Any
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Cookie, status
+from fastapi import APIRouter, Cookie, Depends, HTTPException, status
 
-from app.core.config import get_settings, Settings
 from app.api.dependencies.services import get_review_repository
+from app.core.config import Settings, get_settings
 from app.domain.ports import ReviewRepository
-from app.schemas.repositories import RepositoryResponse, LinkRepositoryRequest, RepositorySettingsResponse, RepositorySettingsUpdate
+from app.schemas.repositories import (
+    LinkRepositoryRequest,
+    RepositoryResponse,
+    RepositorySettingsResponse,
+    RepositorySettingsUpdate,
+)
 
 router = APIRouter()
 
@@ -46,6 +51,7 @@ async def list_repositories(
 ) -> list[RepositoryResponse]:
     # We will use Redis client to query linked repos
     import redis
+
     r_client = redis.Redis(
         host=settings.redis_host,
         port=settings.redis_port,
@@ -109,7 +115,7 @@ async def list_repositories(
                     detail="Failed to fetch user repositories from GitHub.",
                 )
             repos_data = res.json()
-            
+
             repos = []
             for r in repos_data:
                 repos.append(
@@ -142,6 +148,7 @@ async def link_repository(
     settings: Annotated[Settings, Depends(get_settings)],
 ):
     import redis
+
     r_client = redis.Redis(
         host=settings.redis_host,
         port=settings.redis_port,
@@ -149,7 +156,7 @@ async def link_repository(
         password=settings.redis_password.get_secret_value() if settings.redis_password else None,
         decode_responses=True,
     )
-    
+
     repo_name = request.repository
 
     if user.github_token.startswith("mock-"):
@@ -160,8 +167,12 @@ async def link_repository(
     # Real GitHub API Webhook Registration
     webhook_secret = settings.github_webhook_secret.get_secret_value()
     # Replace public_url placeholder or redirect
-    public_url = f"http://{settings.github_redirect_uri.split('/')[2]}/api/v1/webhooks/github" if settings.github_redirect_uri else "http://localhost:8000/api/v1/webhooks/github"
-    
+    public_url = (
+        f"http://{settings.github_redirect_uri.split('/')[2]}/api/v1/webhooks/github"
+        if settings.github_redirect_uri
+        else "http://localhost:8000/api/v1/webhooks/github"
+    )
+
     try:
         async with httpx.AsyncClient() as client:
             hook_res = await client.post(
@@ -186,14 +197,20 @@ async def link_repository(
                 # If webhook already exists, register it in Redis anyway
                 if "already exists" in hook_res.text:
                     r_client.sadd("codesentinel:linked_repos", repo_name)
-                    return {"success": True, "message": "Webhook already exists on GitHub, registered internally."}
+                    return {
+                        "success": True,
+                        "message": "Webhook already exists on GitHub, registered internally.",
+                    }
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"GitHub hook creation failed: {hook_res.text}",
                 )
 
             r_client.sadd("codesentinel:linked_repos", repo_name)
-            return {"success": True, "message": f"Successfully registered webhook on GitHub for {repo_name}"}
+            return {
+                "success": True,
+                "message": f"Successfully registered webhook on GitHub for {repo_name}",
+            }
     except Exception as e:
         if isinstance(e, HTTPException):
             raise e
@@ -213,6 +230,7 @@ async def unlink_repository(
     settings: Annotated[Settings, Depends(get_settings)],
 ):
     import redis
+
     r_client = redis.Redis(
         host=settings.redis_host,
         port=settings.redis_port,
@@ -220,7 +238,7 @@ async def unlink_repository(
         password=settings.redis_password.get_secret_value() if settings.redis_password else None,
         decode_responses=True,
     )
-    
+
     repo_name = request.repository
     r_client.srem("codesentinel:linked_repos", repo_name)
     return {"success": True, "message": f"Successfully unlinked repository {repo_name}"}
@@ -246,7 +264,13 @@ async def get_repo_settings(
             alert_email=None,
             min_security_score=70,
             min_overall_score=60,
-            enabled_agents=["security-agent", "code-review-agent", "testing-agent", "documentation-agent", "deployment-agent"],
+            enabled_agents=[
+                "security-agent",
+                "code-review-agent",
+                "testing-agent",
+                "documentation-agent",
+                "deployment-agent",
+            ],
         )
     return RepositorySettingsResponse(**settings)
 

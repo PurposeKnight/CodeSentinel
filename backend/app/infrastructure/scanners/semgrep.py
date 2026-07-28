@@ -39,9 +39,7 @@ class SemgrepScanner(Scanner):
                 metadata = extra.get("metadata", {})
 
                 raw_severity = (
-                    metadata.get("severity")
-                    or extra.get("severity")
-                    or "WARNING"
+                    metadata.get("severity") or extra.get("severity") or "WARNING"
                 ).upper()
                 severity = "medium"
                 if raw_severity == "ERROR":

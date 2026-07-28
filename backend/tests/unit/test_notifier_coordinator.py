@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -18,7 +18,14 @@ async def test_github_notification_publisher_mock() -> None:
         repository="org/repo",
         pr_number=42,
         review_summary={"score": 80},
-        findings=[{"file": "main.py", "line": 10, "explanation": "Vulnerability info", "recommendation": "Fix it"}],
+        findings=[
+            {
+                "file": "main.py",
+                "line": 10,
+                "explanation": "Vulnerability info",
+                "recommendation": "Fix it",
+            }
+        ],
     )
 
 
@@ -75,7 +82,9 @@ async def test_review_coordinator_all_tasks_completed() -> None:
             review_id=review.id,
             agent="security-agent",
             status="completed",
-            report={"findings": [{"file": "main.py", "line": 5, "explanation": "Vuln description"}]},
+            report={
+                "findings": [{"file": "main.py", "line": 5, "explanation": "Vuln description"}]
+            },
         ),
         AgentTask(
             id="t2",

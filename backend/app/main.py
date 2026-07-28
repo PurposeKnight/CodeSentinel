@@ -26,7 +26,6 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.redis_client = create_redis_client(settings)
     app.state.event_publisher = await create_event_publisher(settings)
 
-
     try:
         yield
     finally:
@@ -61,7 +60,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(webhooks.router, prefix=app_settings.api_v1_prefix, tags=["webhooks"])
     app.include_router(reviews.router, prefix=app_settings.api_v1_prefix, tags=["reviews"])
     app.include_router(auth.router, prefix=app_settings.api_v1_prefix, tags=["auth"])
-    app.include_router(repositories.router, prefix=app_settings.api_v1_prefix, tags=["repositories"])
+    app.include_router(
+        repositories.router, prefix=app_settings.api_v1_prefix, tags=["repositories"]
+    )
 
     return app
 

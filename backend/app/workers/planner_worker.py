@@ -46,6 +46,7 @@ class PlannerWorker:
 
         # Start heartbeat loop
         from app.infrastructure.heartbeat import publish_heartbeat
+
         heartbeat_task = asyncio.create_task(
             publish_heartbeat(
                 redis_url=self._settings.redis_url,
@@ -57,7 +58,7 @@ class PlannerWorker:
         connection = await connect_with_retry(self._settings)
         channel = await connection.channel()
         await channel.set_qos(prefetch_count=self._settings.planner_worker_prefetch_count)
-        
+
         # Declare all queue topologies (webhook and agent task queues)
         await declare_all_topology(channel, self._settings)
         queue = await channel.declare_queue(
@@ -112,7 +113,7 @@ class PlannerWorker:
                 delivery_id=plan.delivery_id,
                 status="pending",
             )
-            
+
             logger.info(
                 "planner_worker_saving_review",
                 review_id=review_id,
@@ -131,7 +132,7 @@ class PlannerWorker:
                     reason=task_plan.reason,
                 )
                 await self._repository.save_task(task)
-                
+
                 logger.info(
                     "planner_worker_publishing_task",
                     task_id=task_id,
@@ -179,8 +180,7 @@ class PlannerWorker:
 async def run_worker(
     settings_factory: Callable[[], Settings] = get_settings,
     worker_factory: (
-        Callable[[Settings, PostgresReviewRepository, EventPublisher], PlannerWorker]
-        | None
+        Callable[[Settings, PostgresReviewRepository, EventPublisher], PlannerWorker] | None
     ) = None,
 ) -> None:
     settings = settings_factory()
@@ -219,4 +219,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

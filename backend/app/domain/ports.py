@@ -148,5 +148,3 @@ class DeploymentService(Protocol):
 
     async def rollback(self, repository: str, pr_number: int) -> str:
         """Simulate rolling back the deployment."""
-
-

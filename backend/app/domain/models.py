@@ -20,7 +20,13 @@ class PullRequestReview:
 
     def calculate_overall_score(self) -> int | None:
         scores = [
-            s for s in (self.security_score, self.performance_score, self.architecture_score, self.documentation_score)
+            s
+            for s in (
+                self.security_score,
+                self.performance_score,
+                self.architecture_score,
+                self.documentation_score,
+            )
             if s is not None
         ]
         if not scores:

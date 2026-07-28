@@ -62,6 +62,7 @@ export interface PullRequestReview {
   tasks: AgentTask[];
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function renderValue(val: any): React.ReactNode {
   if (val === null || val === undefined) return null;
   if (typeof val === "object") {
@@ -365,7 +366,7 @@ export default function ReviewDetailClient({ review }: { review: PullRequestRevi
                           <div style={{ marginTop: "12px" }}>
                             <strong style={{ fontSize: "0.9rem", color: "var(--foreground-muted)" }}>Recommended Test Cases:</strong>
                             <ul style={{ listStyleType: "disc", paddingLeft: "20px", marginTop: "4px", fontSize: "0.95rem" }}>
-                              {f.recommendations.map((rec: any, rIdx: number) => (
+                              {f.recommendations.map((rec, rIdx) => (
                                 <li key={rIdx} style={{ marginBottom: "4px" }}>{renderValue(rec)}</li>
                               ))}
                             </ul>

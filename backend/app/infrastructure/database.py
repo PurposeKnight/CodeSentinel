@@ -39,4 +39,3 @@ async def init_db(pool: asyncpg.Pool) -> None:
         async with connection.transaction():
             await connection.execute(schema_sql)
     logger.info("postgres_db_initialized")
-

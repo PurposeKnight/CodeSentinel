@@ -13,7 +13,6 @@ from app.domain.ports import ReviewRepository
 from app.infrastructure.database import close_postgres_pool, create_postgres_pool, init_db
 from app.infrastructure.git_service import GitService
 from app.infrastructure.github_notifier import GitHubNotificationPublisher
-from app.infrastructure.slack_notifier import SlackNotificationPublisher
 from app.infrastructure.openai_test_analyzer import OpenAITestAnalyzer
 from app.infrastructure.postgres_repository import PostgresReviewRepository
 from app.infrastructure.rabbitmq import (
@@ -22,6 +21,7 @@ from app.infrastructure.rabbitmq import (
     create_event_publisher,
     declare_all_topology,
 )
+from app.infrastructure.slack_notifier import SlackNotificationPublisher
 from app.services.review_coordinator import ReviewCoordinator
 from app.services.testing_agent_service import TestingAgentService
 
@@ -50,6 +50,7 @@ class TestingWorker:
 
         # Start heartbeat loop
         from app.infrastructure.heartbeat import publish_heartbeat
+
         heartbeat_task = asyncio.create_task(
             publish_heartbeat(
                 redis_url=self._settings.redis_url,
@@ -184,7 +185,11 @@ class TestingWorker:
 async def run_worker(
     settings_factory: Callable[[], Settings] = get_settings,
     worker_factory: (
-        Callable[[Settings, PostgresReviewRepository, TestingAgentService, ReviewCoordinator], TestingWorker] | None
+        Callable[
+            [Settings, PostgresReviewRepository, TestingAgentService, ReviewCoordinator],
+            TestingWorker,
+        ]
+        | None
     ) = None,
 ) -> None:
     settings = settings_factory()

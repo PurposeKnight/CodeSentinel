@@ -1,4 +1,5 @@
 import uuid
+
 from app.core.logging import get_logger
 from app.domain.models import AgentTask, PullRequestReview
 from app.domain.ports import EventPublisher, NotificationPublisher, ReviewRepository, SlackPublisher
@@ -26,7 +27,9 @@ class ReviewCoordinator:
             return
 
         if review.status in {"completed", "failed"}:
-            logger.info("review_coordinator_already_finalized", review_id=review_id, status=review.status)
+            logger.info(
+                "review_coordinator_already_finalized", review_id=review_id, status=review.status
+            )
             return
 
         # Retrieve all tasks associated with this review
@@ -39,7 +42,13 @@ class ReviewCoordinator:
         min_security = 70
         min_overall = 60
         slack_webhook = None
-        enabled_agents = ["security-agent", "code-review-agent", "testing-agent", "documentation-agent", "deployment-agent"]
+        enabled_agents = [
+            "security-agent",
+            "code-review-agent",
+            "testing-agent",
+            "documentation-agent",
+            "deployment-agent",
+        ]
         if isinstance(repo_settings, dict):
             min_security = repo_settings.get("min_security_score", 70)
             min_overall = repo_settings.get("min_overall_score", 60)
@@ -83,7 +92,9 @@ class ReviewCoordinator:
 
                 task_id = str(uuid.uuid4())
                 if not passed:
-                    logger.warning("review_coordinator_deployment_gated", review_id=review_id, reason=reason)
+                    logger.warning(
+                        "review_coordinator_deployment_gated", review_id=review_id, reason=reason
+                    )
                     new_task = AgentTask(
                         id=task_id,
                         review_id=review_id,

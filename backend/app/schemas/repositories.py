@@ -22,7 +22,13 @@ class RepositorySettingsResponse(BaseModel):
     alert_email: str | None = None
     min_security_score: int = 70
     min_overall_score: int = 60
-    enabled_agents: list[str] = ["security-agent", "code-review-agent", "testing-agent", "documentation-agent", "deployment-agent"]
+    enabled_agents: list[str] = [
+        "security-agent",
+        "code-review-agent",
+        "testing-agent",
+        "documentation-agent",
+        "deployment-agent",
+    ]
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -32,4 +38,10 @@ class RepositorySettingsUpdate(BaseModel):
     alert_email: str | None = None
     min_security_score: int = 70
     min_overall_score: int = 60
-    enabled_agents: list[str] = ["security-agent", "code-review-agent", "testing-agent", "documentation-agent", "deployment-agent"]
+    enabled_agents: list[str] = [
+        "security-agent",
+        "code-review-agent",
+        "testing-agent",
+        "documentation-agent",
+        "deployment-agent",
+    ]

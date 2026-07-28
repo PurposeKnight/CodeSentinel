@@ -1,5 +1,6 @@
-import httpx
 from typing import Any
+
+import httpx
 
 from app.core.config import Settings
 from app.core.logging import get_logger
@@ -33,11 +34,11 @@ class GitHubNotificationPublisher(NotificationPublisher):
 
 | Category | Score |
 | --- | --- |
-| **Overall Score** | **{score if score is not None else 'N/A'}** / 100 |
-| Security | {sec_score if sec_score is not None else 'N/A'} / 100 |
-| Performance | {perf_score if perf_score is not None else 'N/A'} / 100 |
-| Architecture | {arch_score if arch_score is not None else 'N/A'} / 100 |
-| Documentation | {doc_score if doc_score is not None else 'N/A'} / 100 |
+| **Overall Score** | **{score if score is not None else "N/A"}** / 100 |
+| Security | {sec_score if sec_score is not None else "N/A"} / 100 |
+| Performance | {perf_score if perf_score is not None else "N/A"} / 100 |
+| Architecture | {arch_score if arch_score is not None else "N/A"} / 100 |
+| Documentation | {doc_score if doc_score is not None else "N/A"} / 100 |
 
 We found {len(findings)} issues or recommendations. Please review the detailed comments below.
 """
@@ -59,11 +60,13 @@ We found {len(findings)} issues or recommendations. Please review the detailed c
             if code_fix:
                 comment_body += f"\n\n```python\n{code_fix}\n```"
 
-            comments.append({
-                "path": file_path,
-                "line": int(line),
-                "body": comment_body,
-            })
+            comments.append(
+                {
+                    "path": file_path,
+                    "line": int(line),
+                    "body": comment_body,
+                }
+            )
 
         if self._is_mock:
             logger.info(
@@ -88,7 +91,11 @@ We found {len(findings)} issues or recommendations. Please review the detailed c
             "comments": comments,
         }
 
-        logger.info("github_notification_publisher_sending_request", repository=repository, pr_number=pr_number)
+        logger.info(
+            "github_notification_publisher_sending_request",
+            repository=repository,
+            pr_number=pr_number,
+        )
         async with httpx.AsyncClient() as client:
             response = await client.post(url, headers=headers, json=payload, timeout=30.0)
             if response.status_code >= 400:
@@ -98,4 +105,8 @@ We found {len(findings)} issues or recommendations. Please review the detailed c
                     response=response.text,
                 )
                 response.raise_for_status()
-            logger.info("github_notification_publisher_succeeded", repository=repository, pr_number=pr_number)
+            logger.info(
+                "github_notification_publisher_succeeded",
+                repository=repository,
+                pr_number=pr_number,
+            )

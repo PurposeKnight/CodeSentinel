@@ -53,8 +53,7 @@ async def detailed_health(
     settings = request.app.state.settings
     detailed_data = await health_service.check_detailed_dependencies()
     is_ok = all(
-        item.get("status") == "ok"
-        for item in detailed_data.get("dependencies", {}).values()
+        item.get("status") == "ok" for item in detailed_data.get("dependencies", {}).values()
     )
     return {
         "status": "ok" if is_ok else "degraded",

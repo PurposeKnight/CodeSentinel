@@ -27,7 +27,9 @@ class OpenAIDocAnalyzer(DocAnalyzer):
     async def analyze_documentation(self, target_dir: str) -> dict[str, Any]:
         all_files = []
         for root, _, files in os.walk(target_dir):
-            if any(p in root for p in (".venv", ".git", "__pycache__", ".pytest_cache", ".ruff_cache")):
+            if any(
+                p in root for p in (".venv", ".git", "__pycache__", ".pytest_cache", ".ruff_cache")
+            ):
                 continue
             for file in files:
                 if file.endswith((".py", ".md", ".json", ".yaml", ".yml")):

@@ -5,7 +5,7 @@ import pytest
 from aio_pika.abc import AbstractIncomingMessage
 
 from app.core.config import Settings
-from app.domain.models import AgentTask, PullRequestReview
+from app.domain.models import PullRequestReview
 from app.services.deployment_agent_service import DeploymentAgentService
 from app.workers.deployment_worker import DeploymentWorker
 
@@ -76,12 +76,14 @@ async def test_deployment_worker_message_processing() -> None:
 
     # Mock incoming message
     message = MagicMock(spec=AbstractIncomingMessage)
-    message.body = json.dumps({
-        "review_id": "a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1",
-        "task_id": "b2b2b2b2-b2b2-b2b2-b2b2-b2b2b2b2b2b2",
-        "repository": "org/repo",
-        "pull_request_number": 42,
-    }).encode("utf-8")
+    message.body = json.dumps(
+        {
+            "review_id": "a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1",
+            "task_id": "b2b2b2b2-b2b2-b2b2-b2b2-b2b2b2b2b2b2",
+            "repository": "org/repo",
+            "pull_request_number": 42,
+        }
+    ).encode("utf-8")
 
     async_context = AsyncMock()
     message.process.return_value = async_context
@@ -95,4 +97,6 @@ async def test_deployment_worker_message_processing() -> None:
     assert mock_service.verify_health.call_count == 1
 
     # Verify coordinator check_and_finalize_review gets called at end
-    mock_coordinator.check_and_finalize_review.assert_called_once_with("a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1")
+    mock_coordinator.check_and_finalize_review.assert_called_once_with(
+        "a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1"
+    )

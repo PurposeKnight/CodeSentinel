@@ -1,11 +1,11 @@
 import json
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from aio_pika.abc import AbstractIncomingMessage
 
 from app.core.config import Settings
-from app.domain.models import AgentTask, PullRequestReview
+from app.domain.models import PullRequestReview
 from app.infrastructure.openai_doc_analyzer import OpenAIDocAnalyzer
 from app.services.documentation_agent_service import DocumentationAgentService
 from app.workers.documentation_worker import DocumentationWorker
@@ -65,12 +65,14 @@ async def test_documentation_worker_message_processing() -> None:
 
     # Mock incoming message
     message = MagicMock(spec=AbstractIncomingMessage)
-    message.body = json.dumps({
-        "review_id": "a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1",
-        "task_id": "b2b2b2b2-b2b2-b2b2-b2b2-b2b2b2b2b2b2",
-        "repository": "org/repo",
-        "pull_request_number": 42,
-    }).encode("utf-8")
+    message.body = json.dumps(
+        {
+            "review_id": "a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1",
+            "task_id": "b2b2b2b2-b2b2-b2b2-b2b2-b2b2b2b2b2b2",
+            "repository": "org/repo",
+            "pull_request_number": 42,
+        }
+    ).encode("utf-8")
 
     # Mock processing context manager
     async_context = AsyncMock()
@@ -88,4 +90,6 @@ async def test_documentation_worker_message_processing() -> None:
     assert saved_review.score == 85
 
     # Verify coordinator finalization is called
-    mock_coordinator.check_and_finalize_review.assert_called_once_with("a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1")
+    mock_coordinator.check_and_finalize_review.assert_called_once_with(
+        "a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1"
+    )
