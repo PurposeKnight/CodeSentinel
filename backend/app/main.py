@@ -57,6 +57,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
 
     app.include_router(health.router, tags=["health"])
+    app.include_router(health.router, prefix=app_settings.api_v1_prefix, tags=["health"])
     app.include_router(webhooks.router, prefix=app_settings.api_v1_prefix, tags=["webhooks"])
     app.include_router(reviews.router, prefix=app_settings.api_v1_prefix, tags=["reviews"])
     app.include_router(auth.router, prefix=app_settings.api_v1_prefix, tags=["auth"])
